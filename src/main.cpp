@@ -16,7 +16,7 @@ void run() {
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "vulkan 2...", nullptr, nullptr);
 
-    GraphicsManager graphics;
+    GraphicsManager graphics(window);
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
