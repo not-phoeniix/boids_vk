@@ -12,6 +12,10 @@ class GraphicsManager {
     VkDevice device;
     VkSurfaceKHR surface;
 
+    VkRenderPass render_pass;
+    VkPipelineLayout pipeline_layout;
+    VkPipeline graphics_pipeline;
+
     VkSwapchainKHR swap_chain;
     std::vector<VkImage> swap_chain_images;
     VkFormat swap_chain_image_format;
@@ -27,6 +31,8 @@ class GraphicsManager {
     void CreateSurface(GLFWwindow* window);
     void CreateSwapChain(GLFWwindow* window);
     void CreateImageViews();
+    void CreateRenderPass();
+    void CreateGraphicsPipeline();
 
    public:
     GraphicsManager(GLFWwindow* window);
