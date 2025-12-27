@@ -2,8 +2,6 @@
 #include <stdexcept>
 #include <cstring>
 
-// TODO: staging buffer https://vulkan-tutorial.com/Vertex_buffers/Staging_buffer
-
 static uint32_t find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags properties, VkPhysicalDevice physical_device) {
     VkPhysicalDeviceMemoryProperties mem_properties;
     vkGetPhysicalDeviceMemoryProperties(physical_device, &mem_properties);
