@@ -19,13 +19,16 @@ static void run() {
 
     GraphicsManager graphics(window);
 
+    float dt_sum = 0;
+    uint32_t frame_counter = 0;
+
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
         Input::Update(window);
 
         static float time_prev = static_cast<float>(glfwGetTime());
-        static float time_now = static_cast<float>(glfwGetTime());
+        float time_now = static_cast<float>(glfwGetTime());
 
         float dt = time_now - time_prev;
         if (dt < 0.0001f) dt = 0.0001f;
@@ -37,6 +40,19 @@ static void run() {
         graphics.Begin();
         vkCmdDraw(graphics.get_command_buffer(), 3, 1, 0, 0);
         graphics.EndAndPresent();
+
+        frame_counter++;
+        dt_sum += dt;
+
+        if (frame_counter >= 10000) {
+            float avg_fps = 1.0f / (dt_sum / (float)frame_counter);
+            std::cout << "avg fps: " << avg_fps << std::endl;
+
+            dt_sum = 0;
+            frame_counter = 0;
+        }
+
+        time_prev = time_now;
     }
 
     vkDeviceWaitIdle(graphics.get_device());

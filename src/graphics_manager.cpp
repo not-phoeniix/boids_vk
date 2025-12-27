@@ -10,13 +10,14 @@
 #include <algorithm>
 #include "shader_helper.h"
 
-// TODO: this: https://vulkan-tutorial.com/en/Drawing_a_triangle/Graphics_pipeline_basics/Introduction
+// TODO: this: https://vulkan-tutorial.com/en/Drawing_a_triangle/Drawing/Frames_in_flight
 
-constexpr bool enable_validation_layers = true;
-const std::vector<const char*> validation_layers = {
+constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+constexpr bool ENABLE_VALIDATION_LAYERS = true;
+const std::vector<const char*> VALIDATION_LAYERS = {
     "VK_LAYER_KHRONOS_validation"
 };
-const std::vector<const char*> device_extensions = {
+const std::vector<const char*> DEVICE_EXTENSIONS = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
@@ -101,7 +102,7 @@ static bool check_device_extension_support(VkPhysicalDevice device) {
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, available_extensions.data());
 
     // we use string so equality comparisons work in the set
-    std::set<std::string> required_extensions(device_extensions.begin(), device_extensions.end());
+    std::set<std::string> required_extensions(DEVICE_EXTENSIONS.begin(), DEVICE_EXTENSIONS.end());
 
     for (const auto& extension : available_extensions) {
         required_extensions.erase(extension.extensionName);
@@ -190,14 +191,19 @@ GraphicsManager::GraphicsManager(GLFWwindow* window) {
     CreateGraphicsPipeline();
     CreateFramebuffers();
     CreateCommandPool();
-    CreateCommandBuffer();
+    CreateCommandBuffers();
     CreateSyncObjects();
 }
 
 GraphicsManager::~GraphicsManager() {
-    vkDestroySemaphore(device, image_available_sempahore, nullptr);
-    vkDestroySemaphore(device, render_finished_semaphore, nullptr);
-    vkDestroyFence(device, in_flight_fence, nullptr);
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vkDestroySemaphore(device, image_available_sempahores[i], nullptr);
+        vkDestroyFence(device, in_flight_fences[i], nullptr);
+    }
+
+    for (size_t i = 0; i < render_finished_semaphores.size(); i++) {
+        vkDestroySemaphore(device, render_finished_semaphores[i], nullptr);
+    }
 
     vkDestroyPipeline(device, graphics_pipeline, nullptr);
     vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
@@ -231,7 +237,7 @@ void GraphicsManager::CreateInstance() {
     // ~~~ vulkan validation layers ~~~
 
     std::vector<const char*> layers_to_use;
-    if (enable_validation_layers) {
+    if (ENABLE_VALIDATION_LAYERS) {
         uint32_t layer_count = 0;
         vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
         std::vector<VkLayerProperties> available_layers(layer_count);
@@ -239,7 +245,7 @@ void GraphicsManager::CreateInstance() {
 
         // make sure that each validation layer we wannna use is
         //   actually in the supported layer properties list
-        for (const char* layer_name : validation_layers) {
+        for (const char* layer_name : VALIDATION_LAYERS) {
             bool found = false;
 
             for (const auto& layer_properties : available_layers) {
@@ -254,7 +260,7 @@ void GraphicsManager::CreateInstance() {
             }
         }
 
-        layers_to_use.assign(validation_layers.begin(), validation_layers.end());
+        layers_to_use.assign(VALIDATION_LAYERS.begin(), VALIDATION_LAYERS.end());
     }
 
     // ~~~ GLFW instance extensions ~~~
@@ -353,17 +359,17 @@ void GraphicsManager::CreateLogicalDevice() {
         .queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size()),
         .pQueueCreateInfos = queue_create_infos.data(),
         .enabledLayerCount = 0,
-        .enabledExtensionCount = static_cast<uint32_t>(device_extensions.size()),
-        .ppEnabledExtensionNames = device_extensions.data(),
+        .enabledExtensionCount = static_cast<uint32_t>(DEVICE_EXTENSIONS.size()),
+        .ppEnabledExtensionNames = DEVICE_EXTENSIONS.data(),
         .pEnabledFeatures = &device_features,
     };
 
     // we don't rlly need this with newer versions of vulkan since
     //   instance validation layers kinda replaced everything
     //   else but we keep it just to be compatible for old versions
-    if (enable_validation_layers) {
-        create_info.enabledLayerCount = static_cast<uint32_t>(validation_layers.size());
-        create_info.ppEnabledLayerNames = validation_layers.data();
+    if (ENABLE_VALIDATION_LAYERS) {
+        create_info.enabledLayerCount = static_cast<uint32_t>(VALIDATION_LAYERS.size());
+        create_info.ppEnabledLayerNames = VALIDATION_LAYERS.data();
     }
 
     if (vkCreateDevice(physical_device, &create_info, nullptr, &device) != VK_SUCCESS) {
@@ -711,20 +717,25 @@ void GraphicsManager::CreateCommandPool() {
     }
 }
 
-void GraphicsManager::CreateCommandBuffer() {
+void GraphicsManager::CreateCommandBuffers() {
+    command_buffers.resize(MAX_FRAMES_IN_FLIGHT);
+
     VkCommandBufferAllocateInfo alloc_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = command_pool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1
+        .commandBufferCount = MAX_FRAMES_IN_FLIGHT
     };
 
-    if (vkAllocateCommandBuffers(device, &alloc_info, &command_buffer) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to allocate command buffer!");
+    if (vkAllocateCommandBuffers(device, &alloc_info, command_buffers.data()) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate command buffers!");
     }
 }
 
 void GraphicsManager::CreateSyncObjects() {
+    image_available_sempahores.resize(MAX_FRAMES_IN_FLIGHT);
+    in_flight_fences.resize(MAX_FRAMES_IN_FLIGHT);
+
     VkSemaphoreCreateInfo semaphore_create_info = {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
     };
@@ -735,31 +746,41 @@ void GraphicsManager::CreateSyncObjects() {
         .flags = VK_FENCE_CREATE_SIGNALED_BIT
     };
 
-    if (
-        vkCreateSemaphore(device, &semaphore_create_info, nullptr, &image_available_sempahore) != VK_SUCCESS ||
-        vkCreateSemaphore(device, &semaphore_create_info, nullptr, &render_finished_semaphore) != VK_SUCCESS ||
-        vkCreateFence(device, &fence_create_info, nullptr, &in_flight_fence) != VK_SUCCESS
-    ) {
-        throw std::runtime_error("Failed to create sync objects!");
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        if (
+            vkCreateSemaphore(device, &semaphore_create_info, nullptr, &image_available_sempahores[i]) != VK_SUCCESS ||
+            vkCreateFence(device, &fence_create_info, nullptr, &in_flight_fences[i]) != VK_SUCCESS
+        ) {
+            throw std::runtime_error("Failed to create sync objects for a frame!");
+        }
+    }
+
+    // we make one semaphore for every single swap
+    //   chain image rather than each frame in flight
+    render_finished_semaphores.resize(swap_chain_images.size());
+    for (size_t i = 0; i < render_finished_semaphores.size(); i++) {
+        if (vkCreateSemaphore(device, &semaphore_create_info, nullptr, &render_finished_semaphores[i]) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create sync objects for a frame!");
+        }
     }
 }
 
 void GraphicsManager::Begin() {
     // ~~~ resetting things from last frame ~~~
 
-    vkWaitForFences(device, 1, &in_flight_fence, VK_TRUE, UINT64_MAX);
-    vkResetFences(device, 1, &in_flight_fence);
+    vkWaitForFences(device, 1, &in_flight_fences[frame_flight_index], VK_TRUE, UINT64_MAX);
+    vkResetFences(device, 1, &in_flight_fences[frame_flight_index]);
 
     vkAcquireNextImageKHR(
         device,
         swap_chain,
         UINT64_MAX,
-        image_available_sempahore,
+        image_available_sempahores[frame_flight_index],
         nullptr,
         &swap_chain_image_index
     );
 
-    vkResetCommandBuffer(command_buffer, 0);
+    vkResetCommandBuffer(command_buffers[frame_flight_index], 0);
 
     // ~~~ recording command buffer <3 ~~~
 
@@ -769,7 +790,7 @@ void GraphicsManager::Begin() {
         .pInheritanceInfo = nullptr
     };
 
-    if (vkBeginCommandBuffer(command_buffer, &begin_info) != VK_SUCCESS) {
+    if (vkBeginCommandBuffer(command_buffers[frame_flight_index], &begin_info) != VK_SUCCESS) {
         throw std::runtime_error("Failed to begin command buffer recording!");
     }
 
@@ -785,9 +806,9 @@ void GraphicsManager::Begin() {
         .pClearValues = &clear_value
     };
 
-    vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(command_buffers[frame_flight_index], &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
+    vkCmdBindPipeline(command_buffers[frame_flight_index], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
 
     // dynamic state things !!! :D
 
@@ -799,21 +820,21 @@ void GraphicsManager::Begin() {
         .minDepth = 0.0f,
         .maxDepth = 1.0f
     };
-    vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+    vkCmdSetViewport(command_buffers[frame_flight_index], 0, 1, &viewport);
 
     VkRect2D scissor = {
         .offset = {0, 0},
         .extent = swap_chain_extent
     };
-    vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+    vkCmdSetScissor(command_buffers[frame_flight_index], 0, 1, &scissor);
 }
 
 void GraphicsManager::EndAndPresent() {
     // ~~~ end recording ~~~
 
-    vkCmdEndRenderPass(command_buffer);
+    vkCmdEndRenderPass(command_buffers[frame_flight_index]);
 
-    if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
+    if (vkEndCommandBuffer(command_buffers[frame_flight_index]) != VK_SUCCESS) {
         throw std::runtime_error("Failed to end command buffer recording!");
     }
 
@@ -823,15 +844,17 @@ void GraphicsManager::EndAndPresent() {
     VkSubmitInfo submit_info = {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &image_available_sempahore,
+        .pWaitSemaphores = &image_available_sempahores[frame_flight_index],
         .pWaitDstStageMask = wait_stages,
         .commandBufferCount = 1,
-        .pCommandBuffers = &command_buffer,
+        .pCommandBuffers = &command_buffers[frame_flight_index],
         .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &render_finished_semaphore
+        // we use more semaphores here! one for each swap
+        //  chain image to keep them entirely separate
+        .pSignalSemaphores = &render_finished_semaphores[swap_chain_image_index]
     };
 
-    if (vkQueueSubmit(graphics_queue, 1, &submit_info, in_flight_fence) != VK_SUCCESS) {
+    if (vkQueueSubmit(graphics_queue, 1, &submit_info, in_flight_fences[frame_flight_index]) != VK_SUCCESS) {
         throw std::runtime_error("Failed to submit draw command buffer to graphics queue!");
     }
 
@@ -840,7 +863,7 @@ void GraphicsManager::EndAndPresent() {
     VkPresentInfoKHR present_info = {
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &render_finished_semaphore,
+        .pWaitSemaphores = &render_finished_semaphores[swap_chain_image_index],
         .swapchainCount = 1,
         .pSwapchains = &swap_chain,
         .pImageIndices = &swap_chain_image_index,
@@ -848,6 +871,8 @@ void GraphicsManager::EndAndPresent() {
     };
 
     vkQueuePresentKHR(present_queue, &present_info);
+
+    frame_flight_index = (frame_flight_index + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 #pragma endregion
