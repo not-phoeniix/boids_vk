@@ -11,6 +11,7 @@ class GraphicsManager {
     VkPhysicalDevice physical_device = nullptr;
     VkDevice device;
     VkSurfaceKHR surface;
+    GLFWwindow* window;
 
     VkRenderPass render_pass;
     VkPipelineLayout pipeline_layout;
@@ -24,6 +25,7 @@ class GraphicsManager {
     std::vector<VkFramebuffer> swap_chain_framebuffers;
     uint32_t swap_chain_image_index = 0;
     uint32_t frame_flight_index = 0;
+    bool framebuffer_resized = false;
 
     VkQueue graphics_queue;
     VkQueue present_queue;
@@ -38,8 +40,8 @@ class GraphicsManager {
     void CreateInstance();
     void PickPhysicalDevice();
     void CreateLogicalDevice();
-    void CreateSurface(GLFWwindow* window);
-    void CreateSwapChain(GLFWwindow* window);
+    void CreateSurface();
+    void CreateSwapChain();
     void CreateImageViews();
     void CreateRenderPass();
     void CreateGraphicsPipeline();
@@ -47,6 +49,9 @@ class GraphicsManager {
     void CreateCommandPool();
     void CreateCommandBuffers();
     void CreateSyncObjects();
+
+    void CleanupSwapChain();
+    void RecreateSwapChain();
 
    public:
     GraphicsManager(GLFWwindow* window);
@@ -57,8 +62,10 @@ class GraphicsManager {
 
     // getters/setters
 
-    VkCommandBuffer& get_command_buffer() { return command_buffers[frame_flight_index]; }
-    VkDevice& get_device() { return device; }
-    VkClearValue get_clear_value() { return clear_value; }
+    VkCommandBuffer get_command_buffer() const { return command_buffers[frame_flight_index]; }
+    VkDevice get_device() const { return device; }
+    VkPhysicalDevice get_physical_device() const { return physical_device; }
+    VkClearValue get_clear_value() const { return clear_value; }
     void set_clear_value(VkClearValue clear_value) { this->clear_value = clear_value; }
+    void mark_resized() { framebuffer_resized = true; }
 };

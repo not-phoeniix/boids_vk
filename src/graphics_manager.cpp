@@ -176,16 +176,24 @@ static VkExtent2D choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilitie
     }
 }
 
+static void framebuffer_resize_callback(GLFWwindow* window, int width, int height) {
+    auto manager = reinterpret_cast<GraphicsManager*>(glfwGetWindowUserPointer(window));
+    manager->mark_resized();
+}
+
 #pragma endregion
 
 #pragma region // Class definitions <3
 
-GraphicsManager::GraphicsManager(GLFWwindow* window) {
+GraphicsManager::GraphicsManager(GLFWwindow* window) : window(window) {
+    glfwSetWindowUserPointer(window, this);
+    glfwSetFramebufferSizeCallback(window, framebuffer_resize_callback);
+
     CreateInstance();
-    CreateSurface(window);
+    CreateSurface();
     PickPhysicalDevice();
     CreateLogicalDevice();
-    CreateSwapChain(window);
+    CreateSwapChain();
     CreateImageViews();
     CreateRenderPass();
     CreateGraphicsPipeline();
@@ -196,6 +204,8 @@ GraphicsManager::GraphicsManager(GLFWwindow* window) {
 }
 
 GraphicsManager::~GraphicsManager() {
+    CleanupSwapChain();
+
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroySemaphore(device, image_available_sempahores[i], nullptr);
         vkDestroyFence(device, in_flight_fences[i], nullptr);
@@ -210,15 +220,6 @@ GraphicsManager::~GraphicsManager() {
     vkDestroyRenderPass(device, render_pass, nullptr);
     vkDestroyCommandPool(device, command_pool, nullptr);
 
-    for (auto framebuffer : swap_chain_framebuffers) {
-        vkDestroyFramebuffer(device, framebuffer, nullptr);
-    }
-
-    for (auto image_view : swap_chain_image_views) {
-        vkDestroyImageView(device, image_view, nullptr);
-    }
-
-    vkDestroySwapchainKHR(device, swap_chain, nullptr);
     vkDestroyDevice(device, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
     vkDestroyInstance(instance, nullptr);
@@ -381,13 +382,13 @@ void GraphicsManager::CreateLogicalDevice() {
     vkGetDeviceQueue(device, indices.present.value(), 0, &present_queue);
 }
 
-void GraphicsManager::CreateSurface(GLFWwindow* window) {
+void GraphicsManager::CreateSurface() {
     if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create window surface!");
     }
 }
 
-void GraphicsManager::CreateSwapChain(GLFWwindow* window) {
+void GraphicsManager::CreateSwapChain() {
     SwapChainSupportDetails details = query_swap_chain_support(physical_device, surface);
 
     VkSurfaceFormatKHR surface_format = choose_swap_surface_format(details.formats);
@@ -765,13 +766,43 @@ void GraphicsManager::CreateSyncObjects() {
     }
 }
 
+void GraphicsManager::CleanupSwapChain() {
+    for (auto framebuffer : swap_chain_framebuffers) {
+        vkDestroyFramebuffer(device, framebuffer, nullptr);
+    }
+
+    for (auto image_view : swap_chain_image_views) {
+        vkDestroyImageView(device, image_view, nullptr);
+    }
+
+    vkDestroySwapchainKHR(device, swap_chain, nullptr);
+}
+
+void GraphicsManager::RecreateSwapChain() {
+    // handle minimization (when dimensions are zero)
+    int width = 0;
+    int height = 0;
+    glfwGetFramebufferSize(window, &width, &height);
+    while (width == 0 || height == 0) {
+        glfwGetFramebufferSize(window, &width, &height);
+        glfwWaitEvents();
+    }
+
+    vkDeviceWaitIdle(device);
+
+    CleanupSwapChain();
+
+    CreateSwapChain();
+    CreateImageViews();
+    CreateFramebuffers();
+}
+
 void GraphicsManager::Begin() {
     // ~~~ resetting things from last frame ~~~
 
     vkWaitForFences(device, 1, &in_flight_fences[frame_flight_index], VK_TRUE, UINT64_MAX);
-    vkResetFences(device, 1, &in_flight_fences[frame_flight_index]);
 
-    vkAcquireNextImageKHR(
+    VkResult result = vkAcquireNextImageKHR(
         device,
         swap_chain,
         UINT64_MAX,
@@ -780,6 +811,15 @@ void GraphicsManager::Begin() {
         &swap_chain_image_index
     );
 
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+        RecreateSwapChain();
+        return;
+    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+        throw std::runtime_error("Failed to acquire next swapchain image!");
+    }
+
+    // only reset things if we're submitting work
+    vkResetFences(device, 1, &in_flight_fences[frame_flight_index]);
     vkResetCommandBuffer(command_buffers[frame_flight_index], 0);
 
     // ~~~ recording command buffer <3 ~~~
@@ -870,7 +910,14 @@ void GraphicsManager::EndAndPresent() {
         .pResults = nullptr
     };
 
-    vkQueuePresentKHR(present_queue, &present_info);
+    VkResult result = vkQueuePresentKHR(present_queue, &present_info);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebuffer_resized) {
+        framebuffer_resized = false;
+        RecreateSwapChain();
+    } else if (result != VK_SUCCESS) {
+        throw std::runtime_error("Failed to present swap chain image!");
+    }
 
     frame_flight_index = (frame_flight_index + 1) % MAX_FRAMES_IN_FLIGHT;
 }
