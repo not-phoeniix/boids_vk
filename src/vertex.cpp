@@ -1,0 +1,29 @@
+#include "vertex.h"
+
+// describes how to input the data (size and per-vertex data vs per-instance data)
+VkVertexInputBindingDescription vertex_get_binding_desc() {
+    VkVertexInputBindingDescription desc = {
+        .binding = 0,
+        .stride = sizeof(Vertex),
+        .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+    };
+
+    return desc;
+}
+
+// describes all members of vertex struct <3
+std::array<VkVertexInputAttributeDescription, 2> vertex_get_attribute_descs() {
+    std::array<VkVertexInputAttributeDescription, 2> descs = {};
+
+    descs[0].binding = 0;
+    descs[0].location = 0;
+    descs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    descs[0].offset = offsetof(Vertex, pos);
+
+    descs[1].binding = 0;
+    descs[1].location = 1;
+    descs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    descs[1].offset = offsetof(Vertex, color);
+
+    return descs;
+}

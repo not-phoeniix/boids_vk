@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <GLFW/glfw3.h>
 #include "input.h"
+#include "scene.h"
 
 constexpr uint32_t WIDTH = 800;
 constexpr uint32_t HEIGHT = 600;
@@ -18,9 +19,12 @@ static void run() {
     GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "vulkan 2...", nullptr, nullptr);
 
     GraphicsManager graphics(window);
+    Scene scene;
 
     float dt_sum = 0;
     uint32_t frame_counter = 0;
+
+    scene.Init(graphics.get_device(), graphics.get_physical_device());
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -37,8 +41,10 @@ static void run() {
             glfwSetWindowShouldClose(window, true);
         }
 
+        scene.Update(dt);
+
         graphics.Begin();
-        vkCmdDraw(graphics.get_command_buffer(), 3, 1, 0, 0);
+        scene.Draw(graphics);
         graphics.EndAndPresent();
 
         frame_counter++;
@@ -56,6 +62,8 @@ static void run() {
     }
 
     vkDeviceWaitIdle(graphics.get_device());
+
+    scene.Deinit();
 
     glfwDestroyWindow(window);
     glfwTerminate();

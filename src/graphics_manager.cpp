@@ -9,8 +9,7 @@
 #include <limits>
 #include <algorithm>
 #include "shader_helper.h"
-
-// TODO: this: https://vulkan-tutorial.com/en/Drawing_a_triangle/Drawing/Frames_in_flight
+#include "vertex.h"
 
 constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 constexpr bool ENABLE_VALIDATION_LAYERS = true;
@@ -562,12 +561,15 @@ void GraphicsManager::CreateGraphicsPipeline() {
 
     // ~~~ vertex input ~~~
 
+    auto binding_desc = vertex_get_binding_desc();
+    auto attribute_descs = vertex_get_attribute_descs();
+
     VkPipelineVertexInputStateCreateInfo vertex_input_create_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        .vertexBindingDescriptionCount = 0,
-        .pVertexBindingDescriptions = nullptr,
-        .vertexAttributeDescriptionCount = 0,
-        .pVertexAttributeDescriptions = nullptr
+        .vertexBindingDescriptionCount = 1,
+        .pVertexBindingDescriptions = &binding_desc,
+        .vertexAttributeDescriptionCount = static_cast<uint32_t>(attribute_descs.size()),
+        .pVertexAttributeDescriptions = attribute_descs.data()
     };
 
     // ~~~ input assembly ~~~
