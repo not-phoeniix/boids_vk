@@ -16,14 +16,14 @@ const std::vector<uint32_t> indices = {
     2
 };
 
-void Scene::Init(VkDevice device, VkPhysicalDevice physical_device) {
+void Scene::Init(const GraphicsManager& graphics) {
     MeshCreateInfo mesh_info = {
         .vertices = vertices.data(),
         .num_vertices = static_cast<uint32_t>(vertices.size()),
         .indices = indices.data(),
         .num_indices = static_cast<uint32_t>(indices.size())
     };
-    mesh = std::make_shared<Mesh>(mesh_info, device, physical_device);
+    mesh = std::make_shared<Mesh>(mesh_info, graphics);
 }
 
 void Scene::Deinit() {
@@ -34,7 +34,7 @@ void Scene::Deinit() {
 void Scene::Update(float dt) {
 }
 
-void Scene::Draw(GraphicsManager& graphics) {
+void Scene::Draw(const GraphicsManager& graphics) {
     VkDeviceSize offset = 0;
     VkBuffer vertex_buffer = mesh->get_vertex_buffer();
     vkCmdBindVertexBuffers(

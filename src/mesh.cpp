@@ -1,25 +1,75 @@
 #include "mesh.h"
 
-Mesh::Mesh(const MeshCreateInfo& create_info, VkDevice device, VkPhysicalDevice physical_device)
-  : device(device),
+Mesh::Mesh(const MeshCreateInfo& create_info, const GraphicsManager& graphics)
+  : device(graphics.get_device()),
     num_vertices(create_info.num_vertices),
     num_indices(create_info.num_indices) {
 
     // vertex buffer
-    BufferWrapperCreateInfo vertex_create_info = {
-        .size = sizeof(Vertex) * create_info.num_vertices,
-        .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        .properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-    };
-    vertex_buffer = std::make_unique<BufferWrapper>(vertex_create_info, device, physical_device);
-    vertex_buffer->CopyData(create_info.vertices, sizeof(Vertex) * create_info.num_vertices);
+    {
+        // intermediary buffer so we don't have to always be using a
+        //  buffer that is accessible by CPU host (faster that way)
+        BufferWrapperCreateInfo vert_create_info = {
+            .size = sizeof(Vertex) * create_info.num_vertices,
+            .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            .properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        };
+
+        BufferWrapper staging_buffer(
+            vert_create_info,
+            graphics.get_device(),
+            graphics.get_physical_device()
+        );
+        staging_buffer.CopyFromHost(create_info.vertices, sizeof(Vertex) * create_info.num_vertices);
+
+        // actual vertex buffer! can't be accessed directly from CPU
+        vert_create_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+        vert_create_info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        vertex_buffer = std::make_unique<BufferWrapper>(
+            vert_create_info,
+            graphics.get_device(),
+            graphics.get_physical_device()
+        );
+
+        vertex_buffer->CopyFromBuffer(
+            staging_buffer,
+            vert_create_info.size,
+            graphics.get_command_pool(),
+            graphics.get_graphics_queue()
+        );
+    }
 
     // index buffer
-    BufferWrapperCreateInfo index_create_info = {
-        .size = sizeof(uint32_t) * create_info.num_indices,
-        .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-        .properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-    };
-    index_buffer = std::make_unique<BufferWrapper>(index_create_info, device, physical_device);
-    index_buffer->CopyData(create_info.indices, sizeof(uint32_t) * create_info.num_indices);
+    {
+        // intermediary buffer so we don't have to always be using a
+        //  buffer that is accessible by CPU host (faster that way)
+        BufferWrapperCreateInfo ind_create_info = {
+            .size = sizeof(uint32_t) * create_info.num_indices,
+            .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            .properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        };
+
+        BufferWrapper staging_buffer(
+            ind_create_info,
+            graphics.get_device(),
+            graphics.get_physical_device()
+        );
+        staging_buffer.CopyFromHost(create_info.indices, sizeof(uint32_t) * create_info.num_indices);
+
+        // actual index buffer! can't be accessed directly from CPU
+        ind_create_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+        ind_create_info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        index_buffer = std::make_unique<BufferWrapper>(
+            ind_create_info,
+            graphics.get_device(),
+            graphics.get_physical_device()
+        );
+
+        index_buffer->CopyFromBuffer(
+            staging_buffer,
+            ind_create_info.size,
+            graphics.get_command_pool(),
+            graphics.get_graphics_queue()
+        );
+    }
 }

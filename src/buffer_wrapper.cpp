@@ -18,7 +18,10 @@ static uint32_t find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags pro
 }
 
 BufferWrapper::BufferWrapper(const BufferWrapperCreateInfo& create_info, VkDevice device, VkPhysicalDevice physical_device)
-  : device(device) {
+  : device(device),
+    size(create_info.size),
+    buffer_usage(create_info.usage),
+    memory_properties(create_info.properties) {
     VkBufferCreateInfo buffer_info {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .flags = 0,
@@ -52,13 +55,68 @@ BufferWrapper::BufferWrapper(const BufferWrapperCreateInfo& create_info, VkDevic
 }
 
 BufferWrapper::~BufferWrapper() {
+    vkDeviceWaitIdle(device);
+
     vkDestroyBuffer(device, buffer, nullptr);
     vkFreeMemory(device, device_memory, nullptr);
 }
 
-void BufferWrapper::CopyData(const void* data, size_t size) {
+void BufferWrapper::CopyFromHost(const void* data, size_t size) {
+    if ((memory_properties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+        throw std::runtime_error("Cannot copy data into a buffer whose memory properties don't include VK_MEMORY_PROPERTY_HOST_COHERENT_BIT!");
+    }
+
     void* data_ptr;
     vkMapMemory(device, device_memory, 0, static_cast<VkDeviceSize>(size), 0, &data_ptr);
     memcpy(data_ptr, data, size);
     vkUnmapMemory(device, device_memory);
+}
+
+void BufferWrapper::CopyFromBuffer(const BufferWrapper& src, VkDeviceSize size, VkCommandPool command_pool, VkQueue queue) {
+    if ((src.buffer_usage & VK_BUFFER_USAGE_TRANSFER_SRC_BIT) == 0) {
+        throw std::runtime_error("Cannot copy data from a buffer whose usage doesn't include VK_BUFFER_USAGE_TRANSFER_SRC_BIT!");
+    }
+
+    if ((buffer_usage & VK_BUFFER_USAGE_TRANSFER_DST_BIT) == 0) {
+        throw std::runtime_error("Cannot copy data into a buffer whose usage doesn't include VK_BUFFER_USAGE_TRANSFER_DST_BIT!");
+    }
+
+    VkCommandBufferAllocateInfo alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = command_pool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1
+    };
+
+    // make a brand new command buffer for this one command! wow!
+    VkCommandBuffer command_buffer;
+    vkAllocateCommandBuffers(device, &alloc_info, &command_buffer);
+
+    VkCommandBufferBeginInfo begin_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+    };
+
+    vkBeginCommandBuffer(command_buffer, &begin_info);
+
+    VkBufferCopy copy_region = {
+        .srcOffset = 0,
+        .dstOffset = 0,
+        .size = size
+    };
+    vkCmdCopyBuffer(command_buffer, src.buffer, buffer, 1, &copy_region);
+
+    vkEndCommandBuffer(command_buffer);
+
+    VkSubmitInfo submit_info = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &command_buffer
+    };
+
+    vkQueueSubmit(queue, 1, &submit_info, nullptr);
+
+    vkQueueWaitIdle(queue);
+
+    vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
 }

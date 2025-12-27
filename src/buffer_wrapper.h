@@ -3,7 +3,7 @@
 #include <vulkan/vulkan.h>
 
 struct BufferWrapperCreateInfo {
-    size_t size;
+    VkDeviceSize size;
     VkBufferUsageFlags usage;
     VkMemoryPropertyFlags properties;
 };
@@ -13,12 +13,19 @@ class BufferWrapper {
     VkDevice device;
     VkBuffer buffer;
     VkDeviceMemory device_memory;
+    VkDeviceSize size;
+    VkBufferUsageFlags buffer_usage;
+    VkMemoryPropertyFlags memory_properties;
 
    public:
     BufferWrapper(const BufferWrapperCreateInfo& create_info, VkDevice device, VkPhysicalDevice physical_device);
     ~BufferWrapper();
 
-    void CopyData(const void* data, size_t size);
+    void CopyFromHost(const void* data, size_t size);
+    void CopyFromBuffer(const BufferWrapper& src, VkDeviceSize size, VkCommandPool command_pool, VkQueue queue);
 
-    VkBuffer get_buffer() const { return buffer; }
+    VkBuffer get_buffer() const {
+        return buffer;
+    }
+    VkDeviceSize get_size() const { return size; }
 };

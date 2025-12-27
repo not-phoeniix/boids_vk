@@ -24,7 +24,7 @@ static void run() {
     float dt_sum = 0;
     uint32_t frame_counter = 0;
 
-    scene.Init(graphics.get_device(), graphics.get_physical_device());
+    scene.Init(graphics);
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();

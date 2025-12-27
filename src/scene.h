@@ -11,9 +11,9 @@ class Scene {
    public:
     Scene() = default;
 
-    void Init(VkDevice device, VkPhysicalDevice physical_device);
+    void Init(const GraphicsManager& graphics);
     void Deinit();
 
     void Update(float dt);
-    void Draw(GraphicsManager& graphics);
+    void Draw(const GraphicsManager& graphics);
 };

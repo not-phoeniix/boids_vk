@@ -66,6 +66,9 @@ class GraphicsManager {
     VkDevice get_device() const { return device; }
     VkPhysicalDevice get_physical_device() const { return physical_device; }
     VkClearValue get_clear_value() const { return clear_value; }
+    VkCommandPool get_command_pool() const { return command_pool; }
+    VkQueue get_graphics_queue() const { return graphics_queue; }
+    VkQueue get_present_queue() const { return present_queue; }
     void set_clear_value(VkClearValue clear_value) { this->clear_value = clear_value; }
     void mark_resized() { framebuffer_resized = true; }
 };
