@@ -23,5 +23,5 @@ SpaceBeforeCpp11BracedList: true
 AllowShortCompoundRequirementOnASingleLine: true
 AllowShortFunctionsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: true
-FixNamespaceComments: true
+FixNamespaceComments: false
 NamespaceIndentation: All

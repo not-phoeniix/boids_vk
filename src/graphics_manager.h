@@ -21,9 +21,18 @@ class GraphicsManager {
     VkFormat swap_chain_image_format;
     VkExtent2D swap_chain_extent;
     std::vector<VkImageView> swap_chain_image_views;
+    std::vector<VkFramebuffer> swap_chain_framebuffers;
+    uint32_t swap_chain_image_index = 0;
 
     VkQueue graphics_queue;
     VkQueue present_queue;
+    VkCommandPool command_pool;
+    VkCommandBuffer command_buffer;
+    VkClearValue clear_value = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+
+    VkSemaphore image_available_sempahore;
+    VkSemaphore render_finished_semaphore;
+    VkFence in_flight_fence;
 
     void CreateInstance();
     void PickPhysicalDevice();
@@ -33,8 +42,22 @@ class GraphicsManager {
     void CreateImageViews();
     void CreateRenderPass();
     void CreateGraphicsPipeline();
+    void CreateFramebuffers();
+    void CreateCommandPool();
+    void CreateCommandBuffer();
+    void CreateSyncObjects();
 
    public:
     GraphicsManager(GLFWwindow* window);
     ~GraphicsManager();
+
+    void Begin();
+    void EndAndPresent();
+
+    // getters/setters
+
+    VkCommandBuffer& get_command_buffer() { return command_buffer; }
+    VkDevice& get_device() { return device; }
+    VkClearValue get_clear_value() { return clear_value; }
+    void set_clear_value(VkClearValue clear_value) { this->clear_value = clear_value; }
 };

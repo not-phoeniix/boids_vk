@@ -4,11 +4,12 @@
 #include <stdexcept>
 #include <cstdlib>
 #include <GLFW/glfw3.h>
+#include "input.h"
 
 constexpr uint32_t WIDTH = 800;
 constexpr uint32_t HEIGHT = 600;
 
-void run() {
+static void run() {
     glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
     glfwInit();
 
@@ -21,14 +22,24 @@ void run() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
-        // input updates
+        Input::Update(window);
 
         static float time_prev = static_cast<float>(glfwGetTime());
         static float time_now = static_cast<float>(glfwGetTime());
 
         float dt = time_now - time_prev;
         if (dt < 0.0001f) dt = 0.0001f;
+
+        if (Input::should_exit()) {
+            glfwSetWindowShouldClose(window, true);
+        }
+
+        graphics.Begin();
+        vkCmdDraw(graphics.get_command_buffer(), 3, 1, 0, 0);
+        graphics.EndAndPresent();
     }
+
+    vkDeviceWaitIdle(graphics.get_device());
 
     glfwDestroyWindow(window);
     glfwTerminate();
