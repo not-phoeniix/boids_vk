@@ -60,7 +60,10 @@ BufferWrapper::~BufferWrapper() {
 }
 
 void BufferWrapper::CopyFromHost(const void* data, size_t size) {
-    if ((memory_properties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+    if (
+        (memory_properties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0 ||
+        (memory_properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0
+    ) {
         throw std::runtime_error("Cannot copy data into a buffer whose memory properties don't include VK_MEMORY_PROPERTY_HOST_COHERENT_BIT!");
     }
 
