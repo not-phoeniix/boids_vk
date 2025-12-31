@@ -20,7 +20,7 @@ Mesh::Mesh(const MeshCreateInfo& create_info, const GraphicsManager& graphics)
             graphics.get_device(),
             graphics.get_physical_device()
         );
-        staging_buffer.CopyFromHost(create_info.vertices, sizeof(Vertex) * create_info.num_vertices);
+        staging_buffer.CopyFromHostAuto(create_info.vertices, sizeof(Vertex) * create_info.num_vertices);
 
         // actual vertex buffer! can't be accessed directly from CPU
         vert_create_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
@@ -54,7 +54,7 @@ Mesh::Mesh(const MeshCreateInfo& create_info, const GraphicsManager& graphics)
             graphics.get_device(),
             graphics.get_physical_device()
         );
-        staging_buffer.CopyFromHost(create_info.indices, sizeof(uint32_t) * create_info.num_indices);
+        staging_buffer.CopyFromHostAuto(create_info.indices, sizeof(uint32_t) * create_info.num_indices);
 
         // actual index buffer! can't be accessed directly from CPU
         ind_create_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;

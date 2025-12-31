@@ -12,6 +12,7 @@ class BufferWrapper {
    private:
     VkDevice device;
     VkBuffer buffer;
+    void* mapped = nullptr;
     VkDeviceMemory device_memory;
     VkDeviceSize size;
     VkBufferUsageFlags buffer_usage;
@@ -21,11 +22,16 @@ class BufferWrapper {
     BufferWrapper(const BufferWrapperCreateInfo& create_info, VkDevice device, VkPhysicalDevice physical_device);
     ~BufferWrapper();
 
+    // maps, copies, and unmaps memory automatically
+    void CopyFromHostAuto(const void* data, size_t size);
     void CopyFromHost(const void* data, size_t size);
     void CopyFromBuffer(const BufferWrapper& src, VkDeviceSize size, VkCommandPool command_pool, VkQueue queue);
+    void Map();
+    void Unmap();
 
     VkBuffer get_buffer() const {
         return buffer;
     }
     VkDeviceSize get_size() const { return size; }
+    bool get_mapped() const { return (mapped != nullptr); }
 };

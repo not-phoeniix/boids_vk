@@ -55,8 +55,16 @@ BufferWrapper::BufferWrapper(const BufferWrapperCreateInfo& create_info, VkDevic
 BufferWrapper::~BufferWrapper() {
     vkDeviceWaitIdle(device);
 
+    Unmap();
+
     vkDestroyBuffer(device, buffer, nullptr);
     vkFreeMemory(device, device_memory, nullptr);
+}
+
+void BufferWrapper::CopyFromHostAuto(const void* data, size_t size) {
+    Map();
+    CopyFromHost(data, size);
+    Unmap();
 }
 
 void BufferWrapper::CopyFromHost(const void* data, size_t size) {
@@ -67,10 +75,11 @@ void BufferWrapper::CopyFromHost(const void* data, size_t size) {
         throw std::runtime_error("Cannot copy data into a buffer whose memory properties don't include VK_MEMORY_PROPERTY_HOST_COHERENT_BIT!");
     }
 
-    void* data_ptr;
-    vkMapMemory(device, device_memory, 0, static_cast<VkDeviceSize>(size), 0, &data_ptr);
-    memcpy(data_ptr, data, size);
-    vkUnmapMemory(device, device_memory);
+    if (mapped == nullptr) {
+        throw std::runtime_error("Failed to copy data, buffer was never mapped!");
+    }
+
+    memcpy(mapped, data, size);
 }
 
 void BufferWrapper::CopyFromBuffer(const BufferWrapper& src, VkDeviceSize size, VkCommandPool command_pool, VkQueue queue) {
@@ -120,4 +129,17 @@ void BufferWrapper::CopyFromBuffer(const BufferWrapper& src, VkDeviceSize size, 
     vkQueueWaitIdle(queue);
 
     vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
+}
+
+void BufferWrapper::Map() {
+    if (mapped == nullptr) {
+        vkMapMemory(device, device_memory, 0, size, 0, &mapped);
+    }
+}
+
+void BufferWrapper::Unmap() {
+    if (mapped != nullptr) {
+        vkUnmapMemory(device, device_memory);
+        mapped = nullptr;
+    }
 }
