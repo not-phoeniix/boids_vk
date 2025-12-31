@@ -1,11 +1,27 @@
 #version 450
 
-layout(location = 0) in vec3 inPos;
-layout(location = 1) in vec3 inColor;
+layout(binding = 0) uniform UniformBufferObject {
+    mat4 world;
+    mat4 view;
+    mat4 proj;
+    // mat4 wvp;
+    // mat4 wit;
+    vec3 color;
+    float padding;
+    vec3 ambient;
+    float paddingTwoLol;
+} ubo;
 
-layout(location = 0) out vec3 vertColor;
+layout(location = 0) in vec3 inPos;
+layout(location = 1) in vec3 inNormal;
+
+layout(location = 0) out vec3 outColor;
+layout(location = 1) out vec3 outNormal;
+layout(location = 2) out vec3 outAmbient;
 
 void main() {
-    gl_Position = vec4(inPos, 1.0);
-    vertColor = inColor;
+    gl_Position = ubo.proj * ubo.view * ubo.world * vec4(inPos, 1.0);
+    outColor = ubo.color;
+    outNormal = normalize((ubo.world * vec4(inNormal, 1.0)).xyz);
+    outAmbient = ubo.ambient;
 }

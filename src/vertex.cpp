@@ -23,7 +23,7 @@ std::array<VkVertexInputAttributeDescription, 2> vertex_get_attribute_descs() {
     descs[1].binding = 0;
     descs[1].location = 1;
     descs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    descs[1].offset = offsetof(Vertex, color);
+    descs[1].offset = offsetof(Vertex, normal);
 
     return descs;
 }

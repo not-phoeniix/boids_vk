@@ -4,6 +4,9 @@
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <GLFW/glfw3.h>
+#include "buffer_wrapper.h"
+#include <memory>
+#include "uniform_buffer_object.h"
 
 class GraphicsManager {
    private:
@@ -12,10 +15,6 @@ class GraphicsManager {
     VkDevice device;
     VkSurfaceKHR surface;
     GLFWwindow* window;
-
-    VkRenderPass render_pass;
-    VkPipelineLayout pipeline_layout;
-    VkPipeline graphics_pipeline;
 
     VkSwapchainKHR swap_chain;
     std::vector<VkImage> swap_chain_images;
@@ -26,6 +25,15 @@ class GraphicsManager {
     uint32_t swap_chain_image_index = 0;
     uint32_t frame_flight_index = 0;
     bool framebuffer_resized = false;
+
+    VkRenderPass render_pass;
+    VkPipelineLayout pipeline_layout;
+    VkPipeline graphics_pipeline;
+
+    VkDescriptorSetLayout descriptor_set_layout;
+    VkDescriptorPool descriptor_pool;
+    std::vector<VkDescriptorSet> descriptor_sets;
+    std::vector<std::unique_ptr<BufferWrapper>> uniform_buffers;
 
     VkQueue graphics_queue;
     VkQueue present_queue;
@@ -43,6 +51,12 @@ class GraphicsManager {
     void CreateSurface();
     void CreateSwapChain();
     void CreateImageViews();
+
+    void CreateDescriptorSetLayout();
+    void CreateUniformBuffers();
+    void CreateDescriptorPool();
+    void CreateDescriptorSets();
+
     void CreateRenderPass();
     void CreateGraphicsPipeline();
     void CreateFramebuffers();
@@ -59,6 +73,7 @@ class GraphicsManager {
 
     void Begin();
     void EndAndPresent();
+    void CopyUniformData(const UniformBufferObject& ubo);
 
     // getters/setters
 
@@ -69,6 +84,8 @@ class GraphicsManager {
     VkCommandPool get_command_pool() const { return command_pool; }
     VkQueue get_graphics_queue() const { return graphics_queue; }
     VkQueue get_present_queue() const { return present_queue; }
+    VkExtent2D get_swapchain_extent() const { return swap_chain_extent; }
+    float get_aspect() const { return swap_chain_extent.width / (float)swap_chain_extent.height; }
     void set_clear_value(VkClearValue clear_value) { this->clear_value = clear_value; }
     void mark_resized() { framebuffer_resized = true; }
 };

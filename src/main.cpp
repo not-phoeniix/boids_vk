@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include "graphics_manager.h"
 #include <stdexcept>

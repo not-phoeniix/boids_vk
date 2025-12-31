@@ -194,6 +194,12 @@ GraphicsManager::GraphicsManager(GLFWwindow* window) : window(window) {
     CreateLogicalDevice();
     CreateSwapChain();
     CreateImageViews();
+
+    CreateDescriptorSetLayout();
+    CreateUniformBuffers();
+    CreateDescriptorPool();
+    CreateDescriptorSets();
+
     CreateRenderPass();
     CreateGraphicsPipeline();
     CreateFramebuffers();
@@ -213,6 +219,10 @@ GraphicsManager::~GraphicsManager() {
     for (size_t i = 0; i < render_finished_semaphores.size(); i++) {
         vkDestroySemaphore(device, render_finished_semaphores[i], nullptr);
     }
+
+    uniform_buffers.clear();
+    vkDestroyDescriptorPool(device, descriptor_pool, nullptr);
+    vkDestroyDescriptorSetLayout(device, descriptor_set_layout, nullptr);
 
     vkDestroyPipeline(device, graphics_pipeline, nullptr);
     vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
@@ -600,7 +610,7 @@ void GraphicsManager::CreateGraphicsPipeline() {
         .rasterizerDiscardEnable = VK_FALSE,
         .polygonMode = VK_POLYGON_MODE_FILL,
         .cullMode = VK_CULL_MODE_BACK_BIT,
-        .frontFace = VK_FRONT_FACE_CLOCKWISE,
+        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         .depthBiasEnable = VK_FALSE,
         .lineWidth = 1.0f
     };
@@ -647,8 +657,8 @@ void GraphicsManager::CreateGraphicsPipeline() {
 
     VkPipelineLayoutCreateInfo layout_create_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = 0,
-        .pSetLayouts = nullptr,
+        .setLayoutCount = 1,
+        .pSetLayouts = &descriptor_set_layout,
         .pushConstantRangeCount = 0,
         .pPushConstantRanges = nullptr
     };
@@ -768,6 +778,107 @@ void GraphicsManager::CreateSyncObjects() {
     }
 }
 
+void GraphicsManager::CreateUniformBuffers() {
+    VkDeviceSize size = sizeof(UniformBufferObject);
+    uniform_buffers.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        BufferWrapperCreateInfo create_info = {
+            .size = size,
+            .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            .properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        };
+
+        uniform_buffers[i] = std::make_unique<BufferWrapper>(
+            create_info,
+            device,
+            physical_device
+        );
+        uniform_buffers[i]->Map();
+    }
+}
+
+void GraphicsManager::CreateDescriptorPool() {
+    VkDescriptorPoolSize pool_size = {
+        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = MAX_FRAMES_IN_FLIGHT
+    };
+
+    VkDescriptorPoolCreateInfo create_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = MAX_FRAMES_IN_FLIGHT,
+        .poolSizeCount = 1,
+        .pPoolSizes = &pool_size,
+    };
+
+    if (vkCreateDescriptorPool(device, &create_info, nullptr, &descriptor_pool) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create descriptor pool!");
+    }
+}
+
+void GraphicsManager::CreateDescriptorSets() {
+    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptor_set_layout);
+    VkDescriptorSetAllocateInfo alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = descriptor_pool,
+        .descriptorSetCount = MAX_FRAMES_IN_FLIGHT,
+        .pSetLayouts = layouts.data()
+    };
+
+    descriptor_sets.resize(MAX_FRAMES_IN_FLIGHT);
+    if (vkAllocateDescriptorSets(device, &alloc_info, descriptor_sets.data()) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create descriptor sets!");
+    }
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorBufferInfo buffer_info = {
+            .buffer = uniform_buffers[i]->get_buffer(),
+            .offset = 0,
+            .range = sizeof(UniformBufferObject)
+        };
+
+        VkWriteDescriptorSet write = {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = descriptor_sets[i],
+            .dstBinding = 0,
+            //! descriptors can also be arrays! come back to here when
+            //!   you are using instanced rendering for the boids
+            //! (this is the starting index to write to)
+            // TODO: change this later as WELL so we can pass in a ton of data
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pImageInfo = nullptr,       // if we had samplers
+            .pBufferInfo = &buffer_info, // our buffers we're actually gonna be using
+            .pTexelBufferView = nullptr  // if we had other buffer stuff
+        };
+
+        vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
+    }
+}
+
+void GraphicsManager::CreateDescriptorSetLayout() {
+    VkDescriptorSetLayoutBinding ubo_layout_binding = {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        // THIS REPRESENTS NUMBER OF VALUES IN A POSSIBLE UBO ARRAY...
+        //   TODO: change this later so we can pass in a ton of matrix data
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+        .pImmutableSamplers = nullptr
+    };
+
+    VkDescriptorSetLayoutCreateInfo create_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = 1,
+        .pBindings = &ubo_layout_binding
+    };
+
+    if (vkCreateDescriptorSetLayout(device, &create_info, nullptr, &descriptor_set_layout) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create descriptor set layout!");
+    }
+}
+
 void GraphicsManager::CleanupSwapChain() {
     for (auto framebuffer : swap_chain_framebuffers) {
         vkDestroyFramebuffer(device, framebuffer, nullptr);
@@ -869,6 +980,18 @@ void GraphicsManager::Begin() {
         .extent = swap_chain_extent
     };
     vkCmdSetScissor(command_buffers[frame_flight_index], 0, 1, &scissor);
+
+    // so we get uniforms <3
+    vkCmdBindDescriptorSets(
+        command_buffers[frame_flight_index],
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        pipeline_layout,
+        0,
+        1,
+        &descriptor_sets[frame_flight_index],
+        0,
+        nullptr
+    );
 }
 
 void GraphicsManager::EndAndPresent() {
@@ -922,6 +1045,13 @@ void GraphicsManager::EndAndPresent() {
     }
 
     frame_flight_index = (frame_flight_index + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+void GraphicsManager::CopyUniformData(const UniformBufferObject& ubo) {
+    uniform_buffers[frame_flight_index]->CopyFromHost(
+        &ubo,
+        sizeof(UniformBufferObject)
+    );
 }
 
 #pragma endregion
