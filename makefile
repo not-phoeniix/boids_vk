@@ -23,11 +23,12 @@ SHADER_BIN := $(subst $(SHADER_SRC_DIR),$(SHADER_BIN_DIR),$(foreach file,$(basen
 
 # === build tasks =========================================
 
-all: $(BIN) $(SHADER_BIN)
+all: $(SHADER_BIN) $(BIN)
 
 $(BIN): $(OBJ)
 	@echo "linking..."
 	@$(CXX) $(OBJ) $(POST_FLAGS) -o $(BIN)
+	@echo "done :D"
 
 .SECONDEXPANSION:
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $$(dir $$@)
@@ -55,7 +56,7 @@ clean:
 	rm -rf $(OBJ_DIR)/*
 	@echo "project cleaned!"
 
-run: $(BIN) $(SHADER_BIN)
+run: $(SHADER_BIN) $(BIN)
 	@echo "running $(BIN)..."
 	@cd $(BIN_DIR) && ./$(BIN_NAME)
 
