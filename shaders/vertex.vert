@@ -4,12 +4,10 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 world;
     mat4 view;
     mat4 proj;
-    // mat4 wvp;
     // mat4 wit;
+
     vec3 color;
-    float padding;
     vec3 ambient;
-    float paddingTwoLol;
 } ubo;
 
 layout(location = 0) in vec3 inPos;

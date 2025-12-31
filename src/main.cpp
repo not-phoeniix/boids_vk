@@ -1,3 +1,6 @@
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+
 #include <iostream>
 #include "graphics_manager.h"
 #include <stdexcept>
