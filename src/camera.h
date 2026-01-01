@@ -1,5 +1,6 @@
 #pragma once
 
+#include "glm_settings.h"
 #include <glm/glm.hpp>
 
 class Camera {
@@ -15,7 +16,9 @@ class Camera {
     Camera(float aspect_ratio, float fov, float near, float far);
     Camera(glm::vec3 position, float aspect_ratio, float fov, float near, float far);
 
-    void LookAt(glm::vec3 position);
+    void LookAt(const glm::vec3& target);
+    void MoveBy(const glm::vec3& offset) { position += offset; }
+    void RotateBy(const glm::vec3& offset) { rotation += offset; }
 
     glm::mat4 get_view() const;
     glm::mat4 get_proj() const;
@@ -28,4 +31,9 @@ class Camera {
     float get_aspect() const { return aspect_ratio; }
     void set_fov(float fov) { this->fov = fov; }
     void set_aspect(float aspect_ratio) { this->aspect_ratio = aspect_ratio; }
+
+    glm::vec3 get_position() const { return position; }
+    void set_position(const glm::vec3& new_pos) { position = new_pos; }
+    glm::vec3 get_rotation() const { return rotation; }
+    void set_rotation(const glm::vec3& new_rot) { rotation = new_rot; }
 };

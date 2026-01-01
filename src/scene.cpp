@@ -4,6 +4,13 @@
 #include "vertex.h"
 #include <vulkan/vulkan.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include "input.h"
+#include <string>
+#include <iostream>
+
+constexpr float move_speed = 10.0f;
+constexpr float sprint_scalar = 2.0f;
+constexpr float look_speed = 20.0f;
 
 struct TriData {
     uint16_t pos_indices[3];
@@ -102,16 +109,24 @@ static std::shared_ptr<Mesh> make_box_mesh(GraphicsManager& graphics) {
     return assemble_mesh(positions, normals, triangles, graphics);
 }
 
+static std::string vec3_to_str(const glm::vec3& vec) {
+    return "[" +
+           std::to_string(vec.x) + ", " +
+           std::to_string(vec.y) + ", " +
+           std::to_string(vec.z) + "]";
+}
+
 void Scene::Init(GraphicsManager& graphics) {
     mesh = make_box_mesh(graphics);
 
     camera = std::make_unique<Camera>(
-        glm::vec3(5.0f, 5.0f, 5.0f),
+        glm::vec3(0.0f, 5.0f, -10.0f),
         graphics.get_aspect(),
         glm::radians(60.0f),
         0.01f,
         1000.0f
     );
+    camera->LookAt(glm::vec3(0.0f));
 
     uniform = graphics.MakeNewUniform();
     uniform_two = graphics.MakeNewUniform();
@@ -128,6 +143,25 @@ void Scene::Deinit() {
 
 void Scene::Update(float dt) {
     time += dt;
+
+    // update camera <3
+
+    glm::vec3 move = Input::get_move_axis();
+
+    glm::vec3 offset(0.0f);
+    offset += camera->get_forward() * dt * move_speed * move.z;
+    offset += camera->get_right() * dt * move_speed * move.x;
+    offset += glm::vec3(0.0f, 1.0f, 0.0f) * dt * move_speed * move.y;
+    if (Input::get_is_sprinting()) {
+        offset *= sprint_scalar;
+    }
+    camera->MoveBy(offset);
+
+    glm::vec2 mouse = Input::get_mouse_delta();
+    glm::vec3 look(mouse.y * dt * look_speed, mouse.x * dt * look_speed, 0.0f);
+    if (Input::get_lmb_down()) {
+        camera->RotateBy(look);
+    }
 }
 
 void Scene::Draw(GraphicsManager& graphics) {

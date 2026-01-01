@@ -1,6 +1,3 @@
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-
 #include <iostream>
 #include "graphics_manager.h"
 #include <stdexcept>
@@ -40,7 +37,7 @@ static void run() {
         float dt = time_now - time_prev;
         if (dt < 0.0001f) dt = 0.0001f;
 
-        if (Input::should_exit()) {
+        if (Input::get_should_exit()) {
             glfwSetWindowShouldClose(window, true);
         }
 

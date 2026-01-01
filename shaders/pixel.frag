@@ -18,7 +18,7 @@ void main() {
 
     totalColor += lambert_diffuse(
         vec3(0.7, 0.7, 1.0), 
-        normalize(vec3(1.0, -3.0, -1.5)), 
+        normalize(vec3(1.0, -3.0, 1.5)), 
         0.8, 
         inColor,
         inNormal
