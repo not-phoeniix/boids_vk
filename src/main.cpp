@@ -11,6 +11,7 @@
 
 constexpr uint32_t WIDTH = 800;
 constexpr uint32_t HEIGHT = 600;
+constexpr float FPS_AVG_INTERVAL = 1.0f;
 
 static void run() {
     glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
@@ -18,7 +19,7 @@ static void run() {
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "vulkan 2...", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "!! boids_vk !!", nullptr, nullptr);
 
     GraphicsManager graphics(window);
     Scene scene;
@@ -52,7 +53,7 @@ static void run() {
         frame_counter++;
         dt_sum += dt;
 
-        if (frame_counter >= 10000) {
+        if (dt_sum >= FPS_AVG_INTERVAL) {
             float avg_fps = 1.0f / (dt_sum / (float)frame_counter);
             std::cout << "avg fps: " << avg_fps << std::endl;
 

@@ -112,11 +112,14 @@ void Scene::Init(GraphicsManager& graphics) {
         0.01f,
         1000.0f
     );
+
+    uniform = graphics.MakeNewUniform();
 }
 
 void Scene::Deinit() {
-    // delete mesh <3
+    // delete shared ptrs ! call deconstructors !
     mesh.reset();
+    uniform.reset();
 }
 
 void Scene::Update(float dt) {
@@ -139,7 +142,8 @@ void Scene::Draw(GraphicsManager& graphics) {
         .color = glm::vec3(1.0f, 0.05f, 0.1f),
         .ambient = glm::vec3(0.005f)
     };
-    graphics.CopyUniformData(ubo);
+    uniform->CopyData(ubo);
+    graphics.CmdBindUniform(uniform);
 
     VkDeviceSize offset = 0;
     VkBuffer vertex_buffer = mesh->get_vertex_buffer();

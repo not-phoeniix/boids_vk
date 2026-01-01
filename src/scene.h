@@ -9,6 +9,7 @@ class Scene {
    private:
     std::shared_ptr<Mesh> mesh;
     std::unique_ptr<Camera> camera;
+    std::shared_ptr<UniformWrapper> uniform;
     float time = 0.0f;
 
    public:

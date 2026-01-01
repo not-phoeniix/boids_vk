@@ -7,6 +7,7 @@
 #include "buffer_wrapper.h"
 #include <memory>
 #include "uniform_buffer_object.h"
+#include "uniform_wrapper.h"
 
 class GraphicsManager {
    private:
@@ -32,8 +33,9 @@ class GraphicsManager {
 
     VkDescriptorSetLayout descriptor_set_layout;
     VkDescriptorPool descriptor_pool;
-    std::vector<VkDescriptorSet> descriptor_sets;
-    std::vector<std::unique_ptr<BufferWrapper>> uniform_buffers;
+    // std::vector<std::shared_ptr<UniformWrapper>> uniforms;
+    // std::vector<VkDescriptorSet> descriptor_sets;
+    // std::vector<std::unique_ptr<BufferWrapper>> uniform_buffers;
 
     VkQueue graphics_queue;
     VkQueue present_queue;
@@ -53,9 +55,9 @@ class GraphicsManager {
     void CreateImageViews();
 
     void CreateDescriptorSetLayout();
-    void CreateUniformBuffers();
     void CreateDescriptorPool();
-    void CreateDescriptorSets();
+    // void CreateUniformBuffers();
+    // void CreateDescriptorSets();
 
     void CreateRenderPass();
     void CreateGraphicsPipeline();
@@ -73,7 +75,10 @@ class GraphicsManager {
 
     void Begin();
     void EndAndPresent();
-    void CopyUniformData(const UniformBufferObject& ubo);
+    // void CopyUniformData(const UniformBufferObject& ubo);
+
+    std::shared_ptr<UniformWrapper> MakeNewUniform();
+    void CmdBindUniform(std::shared_ptr<UniformWrapper> uniform);
 
     // getters/setters
 
