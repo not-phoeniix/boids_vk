@@ -218,6 +218,7 @@ GraphicsManager::~GraphicsManager() {
         vkDestroySemaphore(device, render_finished_semaphores[i], nullptr);
     }
 
+    uniforms.clear();
     vkDestroyDescriptorPool(device, descriptor_pool, nullptr);
     vkDestroyDescriptorSetLayout(device, descriptor_set_layout, nullptr);
 
