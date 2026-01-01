@@ -114,12 +114,16 @@ void Scene::Init(GraphicsManager& graphics) {
     );
 
     uniform = graphics.MakeNewUniform();
+    uniform_two = graphics.MakeNewUniform();
+    uniform_three = graphics.MakeNewUniform();
 }
 
 void Scene::Deinit() {
     // delete shared ptrs ! call deconstructors !
     mesh.reset();
     uniform.reset();
+    uniform_two.reset();
+    uniform_three.reset();
 }
 
 void Scene::Update(float dt) {
@@ -128,22 +132,6 @@ void Scene::Update(float dt) {
 
 void Scene::Draw(GraphicsManager& graphics) {
     camera->set_aspect(graphics.get_aspect());
-
-    glm::mat4 world = glm::rotate(
-        glm::mat4(1.0f),
-        time * glm::radians(45.0f),
-        glm::vec3(0.0f, 1.0f, 0.0f)
-    );
-
-    UniformBufferObject ubo = {
-        .world = world,
-        .view = camera->get_view(),
-        .proj = camera->get_proj(),
-        .color = glm::vec3(1.0f, 0.05f, 0.1f),
-        .ambient = glm::vec3(0.005f)
-    };
-    uniform->CopyData(ubo);
-    graphics.CmdBindUniform(uniform);
 
     VkDeviceSize offset = 0;
     VkBuffer vertex_buffer = mesh->get_vertex_buffer();
@@ -162,12 +150,91 @@ void Scene::Draw(GraphicsManager& graphics) {
         VK_INDEX_TYPE_UINT32
     );
 
-    vkCmdDrawIndexed(
-        graphics.get_command_buffer(),
-        mesh->get_num_indices(),
-        1,
-        0,
-        0,
-        0
-    );
+    glm::vec3 ambient(0.005f);
+
+    // object one
+    {
+        glm::mat4 world = glm::rotate(
+            glm::mat4(1.0f),
+            time * glm::radians(45.0f),
+            glm::vec3(0.0f, 1.0f, 0.0f)
+        );
+
+        UniformBufferObject ubo = {
+            .world = world,
+            .view = camera->get_view(),
+            .proj = camera->get_proj(),
+            .color = glm::vec3(1.0f, 0.05f, 0.1f),
+            .ambient = ambient
+        };
+        uniform->CopyData(ubo);
+        graphics.CmdBindUniform(uniform);
+
+        vkCmdDrawIndexed(
+            graphics.get_command_buffer(),
+            mesh->get_num_indices(),
+            1,
+            0,
+            0,
+            0
+        );
+    }
+
+    // object two
+    {
+        glm::mat4 world = glm::translate(glm::mat4(1.0f), glm::vec3(-5.0f, 0.0f, 0.0f));
+        world = glm::rotate(
+            world,
+            time * glm::radians(15.0f),
+            glm::vec3(0.0f, 1.0f, 0.0f)
+        );
+
+        UniformBufferObject ubo = {
+            .world = world,
+            .view = camera->get_view(),
+            .proj = camera->get_proj(),
+            .color = glm::vec3(0.1f, 0.05f, 1.0f),
+            .ambient = ambient
+        };
+        uniform_two->CopyData(ubo);
+        graphics.CmdBindUniform(uniform_two);
+
+        vkCmdDrawIndexed(
+            graphics.get_command_buffer(),
+            mesh->get_num_indices(),
+            1,
+            0,
+            0,
+            0
+        );
+    }
+
+    // object three
+    {
+        glm::mat4 world = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 0.0f, 0.0f));
+        world = glm::rotate(
+            world,
+            time * glm::radians(90.0f),
+            glm::vec3(0.0f, 1.0f, 0.0f)
+        );
+
+        UniformBufferObject ubo = {
+            .world = world,
+            .view = camera->get_view(),
+            .proj = camera->get_proj(),
+            .color = glm::vec3(0.1f, 1.0f, 0.05f),
+            .ambient = ambient
+        };
+        uniform_three->CopyData(ubo);
+        graphics.CmdBindUniform(uniform_three);
+
+        vkCmdDrawIndexed(
+            graphics.get_command_buffer(),
+            mesh->get_num_indices(),
+            1,
+            0,
+            0,
+            0
+        );
+    }
 }

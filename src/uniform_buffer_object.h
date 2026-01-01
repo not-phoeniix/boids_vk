@@ -9,6 +9,6 @@ struct UniformBufferObject {
     // world inverse transpose matrix
     // glm::mat4x4 wit;
 
-    glm::vec3 color;
-    glm::vec3 ambient;
+    alignas(16) glm::vec3 color;
+    alignas(16) glm::vec3 ambient;
 };

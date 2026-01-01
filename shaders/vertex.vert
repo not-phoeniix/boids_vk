@@ -20,6 +20,6 @@ layout(location = 2) out vec3 outAmbient;
 void main() {
     gl_Position = ubo.proj * ubo.view * ubo.world * vec4(inPos, 1.0);
     outColor = ubo.color;
-    outNormal = normalize((ubo.world * vec4(inNormal, 1.0)).xyz);
+    outNormal = normalize(mat3(ubo.world) * inNormal);
     outAmbient = ubo.ambient;
 }

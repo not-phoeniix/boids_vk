@@ -12,7 +12,7 @@ vec3 lambert_diffuse(vec3 lightColor, vec3 lightDir, float lightIntensity, vec3 
 }
 
 void main() {
-    vec3 totalColor = vec3(0.0);
+    vec3 totalColor = vec3(0.0, 0.0, 0.0);
 
     totalColor += inAmbient;
 

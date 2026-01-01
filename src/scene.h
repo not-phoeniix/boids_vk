@@ -10,6 +10,8 @@ class Scene {
     std::shared_ptr<Mesh> mesh;
     std::unique_ptr<Camera> camera;
     std::shared_ptr<UniformWrapper> uniform;
+    std::shared_ptr<UniformWrapper> uniform_two;
+    std::shared_ptr<UniformWrapper> uniform_three;
     float time = 0.0f;
 
    public:

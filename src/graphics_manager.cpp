@@ -12,6 +12,7 @@
 #include "vertex.h"
 
 constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+constexpr uint32_t MAX_NUM_UNIFORMS = 512;
 constexpr bool ENABLE_VALIDATION_LAYERS = true;
 const std::vector<const char*> VALIDATION_LAYERS = {
     "VK_LAYER_KHRONOS_validation"
@@ -779,12 +780,12 @@ void GraphicsManager::CreateSyncObjects() {
 void GraphicsManager::CreateDescriptorPool() {
     VkDescriptorPoolSize pool_size = {
         .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = MAX_FRAMES_IN_FLIGHT
+        .descriptorCount = MAX_NUM_UNIFORMS * MAX_FRAMES_IN_FLIGHT
     };
 
     VkDescriptorPoolCreateInfo create_info = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .maxSets = MAX_FRAMES_IN_FLIGHT,
+        .maxSets = MAX_NUM_UNIFORMS * MAX_FRAMES_IN_FLIGHT,
         .poolSizeCount = 1,
         .pPoolSizes = &pool_size,
     };
@@ -976,6 +977,10 @@ void GraphicsManager::EndAndPresent() {
 }
 
 std::shared_ptr<UniformWrapper> GraphicsManager::MakeNewUniform() {
+    if (uniforms.size() >= MAX_NUM_UNIFORMS) {
+        return nullptr;
+    }
+
     UniformWrapperCreateInfo create_info = {
         .frame_flight_count = MAX_FRAMES_IN_FLIGHT,
         .layout = descriptor_set_layout,
