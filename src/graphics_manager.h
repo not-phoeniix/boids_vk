@@ -33,9 +33,7 @@ class GraphicsManager {
 
     VkDescriptorSetLayout descriptor_set_layout;
     VkDescriptorPool descriptor_pool;
-    // std::vector<std::shared_ptr<UniformWrapper>> uniforms;
-    // std::vector<VkDescriptorSet> descriptor_sets;
-    // std::vector<std::unique_ptr<BufferWrapper>> uniform_buffers;
+    std::vector<std::shared_ptr<UniformWrapper>> uniforms;
 
     VkQueue graphics_queue;
     VkQueue present_queue;
@@ -56,8 +54,6 @@ class GraphicsManager {
 
     void CreateDescriptorSetLayout();
     void CreateDescriptorPool();
-    // void CreateUniformBuffers();
-    // void CreateDescriptorSets();
 
     void CreateRenderPass();
     void CreateGraphicsPipeline();

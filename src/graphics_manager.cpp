@@ -196,9 +196,7 @@ GraphicsManager::GraphicsManager(GLFWwindow* window) : window(window) {
     CreateImageViews();
 
     CreateDescriptorSetLayout();
-    // CreateUniformBuffers();
     CreateDescriptorPool();
-    // CreateDescriptorSets();
 
     CreateRenderPass();
     CreateGraphicsPipeline();
@@ -220,8 +218,6 @@ GraphicsManager::~GraphicsManager() {
         vkDestroySemaphore(device, render_finished_semaphores[i], nullptr);
     }
 
-    // uniform_buffers.clear();
-    // uniforms.clear();
     vkDestroyDescriptorPool(device, descriptor_pool, nullptr);
     vkDestroyDescriptorSetLayout(device, descriptor_set_layout, nullptr);
 
@@ -779,26 +775,6 @@ void GraphicsManager::CreateSyncObjects() {
     }
 }
 
-// void GraphicsManager::CreateUniformBuffers() {
-//     VkDeviceSize size = sizeof(UniformBufferObject);
-//     uniform_buffers.resize(MAX_FRAMES_IN_FLIGHT);
-
-//     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-//         BufferWrapperCreateInfo create_info = {
-//             .size = size,
-//             .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-//             .properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-//         };
-
-//         uniform_buffers[i] = std::make_unique<BufferWrapper>(
-//             create_info,
-//             device,
-//             physical_device
-//         );
-//         uniform_buffers[i]->Map();
-//     }
-// }
-
 void GraphicsManager::CreateDescriptorPool() {
     VkDescriptorPoolSize pool_size = {
         .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -816,47 +792,6 @@ void GraphicsManager::CreateDescriptorPool() {
         throw std::runtime_error("Failed to create descriptor pool!");
     }
 }
-
-// void GraphicsManager::CreateDescriptorSets() {
-//     std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptor_set_layout);
-//     VkDescriptorSetAllocateInfo alloc_info = {
-//         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-//         .descriptorPool = descriptor_pool,
-//         .descriptorSetCount = MAX_FRAMES_IN_FLIGHT,
-//         .pSetLayouts = layouts.data()
-//     };
-
-//     descriptor_sets.resize(MAX_FRAMES_IN_FLIGHT);
-//     if (vkAllocateDescriptorSets(device, &alloc_info, descriptor_sets.data()) != VK_SUCCESS) {
-//         throw std::runtime_error("Failed to create descriptor sets!");
-//     }
-
-//     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-//         VkDescriptorBufferInfo buffer_info = {
-//             .buffer = uniform_buffers[i]->get_buffer(),
-//             .offset = 0,
-//             .range = sizeof(UniformBufferObject)
-//         };
-
-//         VkWriteDescriptorSet write = {
-//             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-//             .dstSet = descriptor_sets[i],
-//             .dstBinding = 0,
-//             //! descriptors can also be arrays! come back to here when
-//             //!   you are using instanced rendering for the boids
-//             //! (this is the starting index to write to)
-//             // TODO: change this later as WELL so we can pass in a ton of data
-//             .dstArrayElement = 0,
-//             .descriptorCount = 1,
-//             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-//             .pImageInfo = nullptr,       // if we had samplers
-//             .pBufferInfo = &buffer_info, // our buffers we're actually gonna be using
-//             .pTexelBufferView = nullptr  // if we had other buffer stuff
-//         };
-
-//         vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
-//     }
-// }
 
 void GraphicsManager::CreateDescriptorSetLayout() {
     VkDescriptorSetLayoutBinding ubo_layout_binding = {
@@ -1034,6 +969,9 @@ void GraphicsManager::EndAndPresent() {
     }
 
     frame_flight_index = (frame_flight_index + 1) % MAX_FRAMES_IN_FLIGHT;
+    for (size_t i = 0; i < uniforms.size(); i++) {
+        uniforms[i]->NextIndex();
+    }
 }
 
 std::shared_ptr<UniformWrapper> GraphicsManager::MakeNewUniform() {
@@ -1049,7 +987,7 @@ std::shared_ptr<UniformWrapper> GraphicsManager::MakeNewUniform() {
         physical_device
     );
 
-    // uniforms.push_back(uniform);
+    uniforms.push_back(uniform);
 
     return uniform;
 }
