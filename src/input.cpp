@@ -65,7 +65,7 @@ bool Input::get_lmb_down() {
 }
 
 bool Input::get_is_sprinting() {
-    return false;
+    return sprinting;
 }
 
 glm::vec3 Input::get_move_axis() {

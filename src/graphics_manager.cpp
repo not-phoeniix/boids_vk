@@ -10,6 +10,7 @@
 #include <algorithm>
 #include "shader_helper.h"
 #include "vertex.h"
+#include "vk_helpers.h"
 
 constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 constexpr uint32_t MAX_NUM_UNIFORMS = 512;
