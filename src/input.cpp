@@ -1,14 +1,12 @@
 #include "input.h"
 
 namespace Input {
-    namespace {
-        bool esc_pressed;
-        bool lmb_down;
-        bool sprinting;
-        glm::vec3 move_axis;
-        glm::vec2 mouse_pos_prev;
-        glm::vec2 mouse_pos;
-    }
+    static bool esc_pressed;
+    static bool lmb_down;
+    static bool sprinting;
+    static glm::vec3 move_axis;
+    static glm::vec2 mouse_pos_prev;
+    static glm::vec2 mouse_pos;
 }
 
 void Input::Update(GLFWwindow* window) {
