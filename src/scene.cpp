@@ -133,8 +133,10 @@ void Scene::Init(GraphicsManager& graphics) {
     );
     camera->LookAt(glm::vec3(0.0f));
 
-    world_matrices.resize(OBJECT_COUNT);
     colors.resize(OBJECT_COUNT);
+    positions.resize(OBJECT_COUNT);
+    rotations.resize(OBJECT_COUNT);
+    rot_speeds.resize(OBJECT_COUNT);
     uniforms.resize(OBJECT_COUNT);
     for (uint32_t i = 0; i < OBJECT_COUNT; i++) {
         glm::vec3 pos = {
@@ -143,17 +145,21 @@ void Scene::Init(GraphicsManager& graphics) {
             randf_range(-SPAWN_BOX_SIZE / 2.0f, SPAWN_BOX_SIZE / 2.0f)
         };
         pos *= SPAWN_BOX_SIZE;
-        glm::vec3 rot = {
-            randf_range(0.0f, M_2_PI),
-            randf_range(0.0f, M_2_PI),
-            randf_range(0.0f, M_2_PI)
-        };
+        positions[i] = pos;
 
-        glm::mat4 world = glm::translate(glm::mat4(1.0f), pos);
-        world = glm::rotate(world, rot.z, glm::vec3(0.0f, 0.0f, 1.0f));
-        world = glm::rotate(world, rot.y, glm::vec3(0.0f, 1.0f, 0.0f));
-        world = glm::rotate(world, rot.x, glm::vec3(1.0f, 0.0f, 0.0f));
-        world_matrices[i] = world;
+        glm::vec3 rot = {
+            randf_range(0.0f, M_PI * 2),
+            randf_range(0.0f, M_PI * 2),
+            randf_range(0.0f, M_PI * 2)
+        };
+        rotations[i] = rot;
+
+        glm::vec3 rot_speed = {
+            randf_range(0.0f, M_PI * 2),
+            randf_range(0.0f, M_PI * 2),
+            randf_range(0.0f, M_PI * 2)
+        };
+        rot_speeds[i] = rot_speed;
 
         colors[i] = {
             randf_range(0.0f, 1.0f),
@@ -169,12 +175,17 @@ void Scene::Deinit() {
     // delete shared ptrs ! call deconstructors !
     mesh.reset();
     camera.reset();
-    world_matrices.clear();
+    positions.clear();
+    rotations.clear();
+    rot_speeds.clear();
     colors.clear();
     uniforms.clear();
 }
 
+static float past_dt = 1.0f;
+
 void Scene::Update(float dt) {
+    past_dt = dt;
     time += dt;
 
     // update camera <3
@@ -220,8 +231,15 @@ void Scene::Draw(GraphicsManager& graphics) {
     glm::vec3 ambient(0.005f);
 
     for (uint32_t i = 0; i < OBJECT_COUNT; i++) {
+        glm::mat4 world = glm::translate(glm::mat4(1.0f), positions[i]);
+        rotations[i] += (rot_speeds[i] * past_dt);
+        glm::vec3 rot = rotations[i];
+        world = glm::rotate(world, rot.z, glm::vec3(0.0f, 0.0f, 1.0f));
+        world = glm::rotate(world, rot.y, glm::vec3(0.0f, 1.0f, 0.0f));
+        world = glm::rotate(world, rot.x, glm::vec3(1.0f, 0.0f, 0.0f));
+
         UniformBufferObject ubo = {
-            .world = world_matrices[i],
+            .world = world,
             .view = camera->get_view(),
             .proj = camera->get_proj(),
             .color = colors[i],

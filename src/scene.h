@@ -12,8 +12,10 @@ class Scene {
    private:
     std::shared_ptr<Mesh> mesh;
     std::unique_ptr<Camera> camera;
-    std::vector<glm::mat4> world_matrices;
     std::vector<glm::vec3> colors;
+    std::vector<glm::vec3> positions;
+    std::vector<glm::vec3> rotations;
+    std::vector<glm::vec3> rot_speeds;
     std::vector<std::shared_ptr<UniformWrapper>> uniforms;
     float time = 0.0f;
 
