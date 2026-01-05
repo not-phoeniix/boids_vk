@@ -8,6 +8,7 @@
 #include <memory>
 #include "uniform_buffer_object.h"
 #include "uniform_wrapper.h"
+#include "graphics_context.h"
 
 class GraphicsManager {
    private:
@@ -86,6 +87,20 @@ class GraphicsManager {
     VkQueue get_graphics_queue() const { return graphics_queue; }
     VkQueue get_present_queue() const { return present_queue; }
     VkExtent2D get_swapchain_extent() const { return swap_chain_extent; }
+    GraphicsContext get_context() const {
+        return (GraphicsContext) {
+            .instance = instance,
+            .device = device,
+            .physical_device = physical_device,
+            .command_pool = command_pool,
+            .command_buffer = command_buffers[frame_flight_index],
+            .swapchain_extent = swap_chain_extent,
+            .pipeline_layout = pipeline_layout,
+            .graphics_queue = graphics_queue,
+            .present_queue = present_queue,
+            .window = window
+        };
+    }
     float get_aspect() const { return swap_chain_extent.width / (float)swap_chain_extent.height; }
     void set_clear_value(VkClearValue clear_value) { this->clear_value = clear_value; }
     void mark_resized() { framebuffer_resized = true; }

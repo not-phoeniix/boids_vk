@@ -35,16 +35,16 @@ uint32_t find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags properties
     throw std::runtime_error("Failed to find any suitable memory type!");
 }
 
-VkCommandBuffer begin_single_use_commands(VkCommandPool command_pool, VkDevice device) {
+VkCommandBuffer begin_single_use_commands(const GraphicsContext& ctx) {
     VkCommandBufferAllocateInfo alloc_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = command_pool,
+        .commandPool = ctx.command_pool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1
     };
 
     VkCommandBuffer command_buffer;
-    vkAllocateCommandBuffers(device, &alloc_info, &command_buffer);
+    vkAllocateCommandBuffers(ctx.device, &alloc_info, &command_buffer);
 
     VkCommandBufferBeginInfo begin_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -56,7 +56,7 @@ VkCommandBuffer begin_single_use_commands(VkCommandPool command_pool, VkDevice d
     return command_buffer;
 }
 
-void end_single_use_commands(VkCommandBuffer command_buffer, VkQueue queue, VkCommandPool command_pool, VkDevice device) {
+void end_single_use_commands(VkCommandBuffer command_buffer, const GraphicsContext& ctx) {
     vkEndCommandBuffer(command_buffer);
 
     VkSubmitInfo submit_info = {
@@ -65,9 +65,15 @@ void end_single_use_commands(VkCommandBuffer command_buffer, VkQueue queue, VkCo
         .pCommandBuffers = &command_buffer
     };
 
-    vkQueueSubmit(queue, 1, &submit_info, nullptr);
+    vkQueueSubmit(ctx.graphics_queue, 1, &submit_info, nullptr);
 
-    vkQueueWaitIdle(queue);
+    vkQueueWaitIdle(ctx.graphics_queue);
 
-    vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
+    vkFreeCommandBuffers(ctx.device, ctx.command_pool, 1, &command_buffer);
+}
+
+void transition_image_layout(VkImage image, VkFormat format, VkImageLayout prev_layout, VkImageLayout new_layout, const GraphicsContext& ctx) {
+    VkCommandBuffer command_buffer = begin_single_use_commands(ctx);
+
+    end_single_use_commands(command_buffer, ctx);
 }

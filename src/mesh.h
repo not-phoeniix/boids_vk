@@ -4,7 +4,7 @@
 #include "vertex.h"
 #include "buffer_wrapper.h"
 #include <memory>
-#include "graphics_manager.h"
+#include "graphics_context.h"
 
 struct MeshCreateInfo {
     const Vertex* vertices;
@@ -24,7 +24,7 @@ struct Mesh {
     uint32_t num_indices;
 
    public:
-    Mesh(const MeshCreateInfo& create_info, const GraphicsManager& graphics);
+    Mesh(const MeshCreateInfo& create_info, const GraphicsContext& ctx);
     ~Mesh() = default;
 
     VkBuffer get_vertex_buffer() const { return vertex_buffer->get_buffer(); }

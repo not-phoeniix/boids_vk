@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
+#include "graphics_context.h"
 
 struct BufferWrapperCreateInfo {
     VkDeviceSize size;
@@ -19,13 +20,13 @@ class BufferWrapper {
     VkMemoryPropertyFlags memory_properties;
 
    public:
-    BufferWrapper(const BufferWrapperCreateInfo& create_info, VkDevice device, VkPhysicalDevice physical_device);
+    BufferWrapper(const BufferWrapperCreateInfo& create_info, const GraphicsContext& ctx);
     ~BufferWrapper();
 
     // maps, copies, and unmaps memory automatically
     void CopyFromHostAuto(const void* data, size_t size);
     void CopyFromHost(const void* data, size_t size);
-    void CopyFromBuffer(const BufferWrapper& src, VkDeviceSize size, VkCommandPool command_pool, VkQueue queue);
+    void CopyFromBuffer(const BufferWrapper& src, const GraphicsContext& ctx);
     void Map();
     void Unmap();
 

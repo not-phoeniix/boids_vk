@@ -3,8 +3,8 @@
 #include <cstring>
 #include "vk_helpers.h"
 
-BufferWrapper::BufferWrapper(const BufferWrapperCreateInfo& create_info, VkDevice device, VkPhysicalDevice physical_device)
-  : device(device),
+BufferWrapper::BufferWrapper(const BufferWrapperCreateInfo& create_info, const GraphicsContext& ctx)
+  : device(ctx.device),
     size(create_info.size),
     buffer_usage(create_info.usage),
     memory_properties(create_info.properties) {
@@ -16,12 +16,12 @@ BufferWrapper::BufferWrapper(const BufferWrapperCreateInfo& create_info, VkDevic
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     };
 
-    if (vkCreateBuffer(device, &buffer_info, nullptr, &buffer) != VK_SUCCESS) {
+    if (vkCreateBuffer(ctx.device, &buffer_info, nullptr, &buffer) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create buffer!");
     }
 
     VkMemoryRequirements mem_req;
-    vkGetBufferMemoryRequirements(device, buffer, &mem_req);
+    vkGetBufferMemoryRequirements(ctx.device, buffer, &mem_req);
 
     VkMemoryAllocateInfo alloc_info {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -29,15 +29,15 @@ BufferWrapper::BufferWrapper(const BufferWrapperCreateInfo& create_info, VkDevic
         .memoryTypeIndex = find_memory_type(
             mem_req.memoryTypeBits,
             create_info.properties,
-            physical_device
+            ctx.physical_device
         )
     };
 
-    if (vkAllocateMemory(device, &alloc_info, nullptr, &device_memory) != VK_SUCCESS) {
+    if (vkAllocateMemory(ctx.device, &alloc_info, nullptr, &device_memory) != VK_SUCCESS) {
         throw std::runtime_error("Failed to allocate GPU buffer memory!");
     }
 
-    vkBindBufferMemory(device, buffer, device_memory, 0);
+    vkBindBufferMemory(ctx.device, buffer, device_memory, 0);
 }
 
 BufferWrapper::~BufferWrapper() {
@@ -70,7 +70,7 @@ void BufferWrapper::CopyFromHost(const void* data, size_t size) {
     memcpy(mapped, data, size);
 }
 
-void BufferWrapper::CopyFromBuffer(const BufferWrapper& src, VkDeviceSize size, VkCommandPool command_pool, VkQueue queue) {
+void BufferWrapper::CopyFromBuffer(const BufferWrapper& src, const GraphicsContext& ctx) {
     if ((src.buffer_usage & VK_BUFFER_USAGE_TRANSFER_SRC_BIT) == 0) {
         throw std::runtime_error("Cannot copy data from a buffer whose usage doesn't include VK_BUFFER_USAGE_TRANSFER_SRC_BIT!");
     }
@@ -79,16 +79,18 @@ void BufferWrapper::CopyFromBuffer(const BufferWrapper& src, VkDeviceSize size, 
         throw std::runtime_error("Cannot copy data into a buffer whose usage doesn't include VK_BUFFER_USAGE_TRANSFER_DST_BIT!");
     }
 
-    VkCommandBuffer command_buffer = begin_single_use_commands(command_pool, device);
+    VkCommandBuffer command_buffer = begin_single_use_commands(ctx);
 
+    VkDeviceSize copy_size = src.size;
+    if (copy_size > size) copy_size = size;
     VkBufferCopy copy_region = {
         .srcOffset = 0,
         .dstOffset = 0,
-        .size = size
+        .size = copy_size
     };
     vkCmdCopyBuffer(command_buffer, src.buffer, buffer, 1, &copy_region);
 
-    end_single_use_commands(command_buffer, queue, command_pool, device);
+    end_single_use_commands(command_buffer, ctx);
 }
 
 void BufferWrapper::Map() {

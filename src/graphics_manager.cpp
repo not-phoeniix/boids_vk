@@ -990,8 +990,7 @@ std::shared_ptr<UniformWrapper> GraphicsManager::MakeNewUniform() {
 
     auto uniform = std::make_shared<UniformWrapper>(
         create_info,
-        device,
-        physical_device
+        get_context()
     );
 
     uniforms.push_back(uniform);

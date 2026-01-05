@@ -22,7 +22,7 @@ static std::shared_ptr<Mesh> assemble_mesh(
     const std::vector<glm::vec3>& positions,
     const std::vector<glm::vec3>& normals,
     const std::vector<TriData>& triangles,
-    GraphicsManager& graphics
+    const GraphicsContext& ctx
 ) {
     std::vector<Vertex> vertices(triangles.size() * 3);
     std::vector<uint32_t> indices(triangles.size() * 3);
@@ -54,10 +54,10 @@ static std::shared_ptr<Mesh> assemble_mesh(
         .num_indices = static_cast<uint32_t>(indices.size())
     };
 
-    return std::make_shared<Mesh>(mesh_info, graphics);
+    return std::make_shared<Mesh>(mesh_info, ctx);
 }
 
-static std::shared_ptr<Mesh> make_box_mesh(GraphicsManager& graphics) {
+static std::shared_ptr<Mesh> make_box_mesh(const GraphicsContext& ctx) {
     std::vector<glm::vec3> positions = {
         {-1.0f, -1.0f, +1.0f},
         {+1.0f, -1.0f, +1.0f},
@@ -107,7 +107,7 @@ static std::shared_ptr<Mesh> make_box_mesh(GraphicsManager& graphics) {
         {{4, 0, 2}, 5},
     };
 
-    return assemble_mesh(positions, normals, triangles, graphics);
+    return assemble_mesh(positions, normals, triangles, ctx);
 }
 
 static std::string vec3_to_str(const glm::vec3& vec) {
@@ -122,7 +122,7 @@ static float randf_range(float min, float max) {
 }
 
 void Scene::Init(GraphicsManager& graphics) {
-    mesh = make_box_mesh(graphics);
+    mesh = make_box_mesh(graphics.get_context());
 
     camera = std::make_unique<Camera>(
         glm::vec3(0.0f, 5.0f, -10.0f),

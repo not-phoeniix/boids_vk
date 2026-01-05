@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-void UniformWrapper::CreateBuffers(uint32_t count, VkDevice device, VkPhysicalDevice physical_device) {
+void UniformWrapper::CreateBuffers(uint32_t count, const GraphicsContext& ctx) {
     VkDeviceSize size = sizeof(UniformBufferObject);
     uniform_buffers.resize(count);
 
@@ -13,11 +13,7 @@ void UniformWrapper::CreateBuffers(uint32_t count, VkDevice device, VkPhysicalDe
             .properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
         };
 
-        uniform_buffers[i] = std::make_unique<BufferWrapper>(
-            create_info,
-            device,
-            physical_device
-        );
+        uniform_buffers[i] = std::make_unique<BufferWrapper>(create_info, ctx);
         uniform_buffers[i]->Map();
     }
 }
@@ -65,12 +61,11 @@ void UniformWrapper::CreateDescriptors(uint32_t count, VkDescriptorSetLayout lay
 
 UniformWrapper::UniformWrapper(
     const UniformWrapperCreateInfo& create_info,
-    VkDevice device,
-    VkPhysicalDevice physical_device
-) : device(device),
+    const GraphicsContext& ctx
+) : device(ctx.device),
     frame_flight_count(create_info.frame_flight_count),
     frame_flight_index(0) {
-    CreateBuffers(create_info.frame_flight_count, device, physical_device);
+    CreateBuffers(create_info.frame_flight_count, ctx);
     CreateDescriptors(create_info.frame_flight_count, create_info.layout, create_info.pool);
 }
 

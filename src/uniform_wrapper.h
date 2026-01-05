@@ -6,6 +6,7 @@
 #include "buffer_wrapper.h"
 #include "uniform_buffer_object.h"
 #include <memory>
+#include "graphics_context.h"
 
 struct UniformWrapperCreateInfo {
     uint32_t frame_flight_count;
@@ -21,11 +22,11 @@ class UniformWrapper {
     std::vector<VkDescriptorSet> descriptor_sets;
     std::vector<std::unique_ptr<BufferWrapper>> uniform_buffers;
 
-    void CreateBuffers(uint32_t count, VkDevice device, VkPhysicalDevice physical_device);
+    void CreateBuffers(uint32_t count, const GraphicsContext& ctx);
     void CreateDescriptors(uint32_t count, VkDescriptorSetLayout layout, VkDescriptorPool pool);
 
    public:
-    UniformWrapper(const UniformWrapperCreateInfo& create_info, VkDevice device, VkPhysicalDevice physical_device);
+    UniformWrapper(const UniformWrapperCreateInfo& create_info, const GraphicsContext& ctx);
     ~UniformWrapper();
 
     void NextIndex() {
