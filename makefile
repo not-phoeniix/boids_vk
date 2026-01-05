@@ -8,10 +8,12 @@ SHADER_FLAGS :=
 # directories
 SRC_DIR := src
 SHADER_SRC_DIR := shaders
+RES_DIR := res
 LIB_DIR := include
 BIN_DIR := bin
 OBJ_DIR := $(BIN_DIR)/obj
 SHADER_BIN_DIR := $(BIN_DIR)/shaders
+RES_COPY_DIR := $(BIN_DIR)/res
 
 # files
 SRC := $(shell find $(SRC_DIR)/ -type f -iname "*.cpp")
@@ -20,10 +22,12 @@ BIN_NAME := build
 BIN := $(BIN_DIR)/$(BIN_NAME)
 SHADER_SRC := $(shell find $(SHADER_SRC_DIR)/ -type f)
 SHADER_BIN := $(subst $(SHADER_SRC_DIR),$(SHADER_BIN_DIR),$(foreach file,$(basename $(SHADER_SRC)),$(file).spv))
+RES_SRC := $(shell find $(RES_DIR)/ -type f)
+RES_OUT := $(subst $(RES_DIR),$(RES_COPY_DIR),$(RES_SRC))
 
 # === build tasks =========================================
 
-all: $(SHADER_BIN) $(BIN)
+all: $(RES_OUT) $(SHADER_BIN) $(BIN)
 
 $(BIN): $(OBJ)
 	@echo "linking..."
@@ -31,6 +35,7 @@ $(BIN): $(OBJ)
 	@echo "done :D"
 
 .SECONDEXPANSION:
+
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $$(dir $$@)
 	@echo "compiling $<..."
 	@$(CXX) -c $< $(PRE_FLAGS) -I $(LIB_DIR) -o $@
@@ -38,6 +43,10 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $$(dir $$@)
 $(SHADER_BIN_DIR)/%.spv: $(SHADER_SRC_DIR)/%.* | $$(dir $$@)
 	@echo "compiling $<..."
 	@$(SHADER_CXX) $< $(SHADER_FLAGS) -o $@
+
+$(RES_COPY_DIR)/%: $(RES_DIR)/% | $$(dir $$@)
+	@echo "copying $< to $@"
+	@cp $< $@
 
 # ensure directories are created via custom task
 %/:
@@ -54,9 +63,10 @@ clean:
 	rm -rf $(BIN) 
 	rm -rf $(SHADER_BIN_DIR)/*
 	rm -rf $(OBJ_DIR)/*
+	rm -rf $(RES_COPY_DIR)/*
 	@echo "project cleaned!"
 
-run: $(SHADER_BIN) $(BIN)
+run: $(RES_OUT) $(SHADER_BIN) $(BIN)
 	@echo "running $(BIN)..."
 	@cd $(BIN_DIR) && ./$(BIN_NAME)
 
@@ -65,7 +75,7 @@ setup:
 	@echo "setting up project..."
 
 	@echo "creating directories..."
-	mkdir -p $(SRC_DIR) $(BIN_DIR) $(OBJ_DIR) $(LIB_DIR) $(SHADER_SRC_DIR)
+	mkdir -p $(SRC_DIR) $(BIN_DIR) $(OBJ_DIR) $(LIB_DIR) $(SHADER_SRC_DIR) $(RES_DIR)
 
 	@echo "creating main.cpp..."
 	@echo "#include <iostream>" >> $(SRC_DIR)/main.cpp
