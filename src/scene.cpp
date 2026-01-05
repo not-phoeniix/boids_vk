@@ -7,6 +7,9 @@
 #include <iostream>
 #include <glm/gtc/matrix_transform.hpp>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb/stb_image.h>
+
 constexpr float MOVE_SPEED = 10.0f;
 constexpr float SPRINT_SCALAR = 4.0f;
 constexpr float LOOK_SPEED = 0.007f;
@@ -110,6 +113,39 @@ static std::shared_ptr<Mesh> make_box_mesh(const GraphicsContext& ctx) {
     return assemble_mesh(positions, normals, triangles, ctx);
 }
 
+static std::shared_ptr<ImageWrapper> make_image(const std::string& path, const GraphicsContext& ctx) {
+    int width;
+    int height;
+    int channels;
+    stbi_uc* pixels = stbi_load(
+        path.c_str(),
+        &width,
+        &height,
+        &channels,
+        STBI_rgb_alpha
+    );
+
+    if (pixels == nullptr) {
+        throw std::runtime_error("Failed to load image!");
+    }
+
+    ImageWrapperCreateInfo create_info = {
+        .width = static_cast<uint32_t>(width),
+        .height = static_cast<uint32_t>(height),
+        .format = VK_FORMAT_R8G8B8A8_SRGB,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .image_usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .memory_properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        .image_data = pixels
+    };
+
+    auto image = std::make_shared<ImageWrapper>(create_info, ctx);
+
+    stbi_image_free(pixels);
+
+    return image;
+}
+
 static std::string vec3_to_str(const glm::vec3& vec) {
     return "[" +
            std::to_string(vec.x) + ", " +
@@ -132,6 +168,8 @@ void Scene::Init(GraphicsManager& graphics) {
         1000.0f
     );
     camera->LookAt(glm::vec3(0.0f));
+
+    image = make_image("res/dogwho_is_also___rendered.png", graphics.get_context());
 
     colors.resize(OBJECT_COUNT);
     positions.resize(OBJECT_COUNT);
@@ -174,6 +212,7 @@ void Scene::Init(GraphicsManager& graphics) {
 void Scene::Deinit() {
     // delete shared ptrs ! call deconstructors !
     mesh.reset();
+    image.reset();
     camera.reset();
     positions.clear();
     rotations.clear();
