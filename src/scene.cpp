@@ -172,13 +172,6 @@ static std::shared_ptr<ImageWrapper> make_image(const std::string& path, const G
     return image;
 }
 
-static std::string vec3_to_str(const glm::vec3& vec) {
-    return "[" +
-           std::to_string(vec.x) + ", " +
-           std::to_string(vec.y) + ", " +
-           std::to_string(vec.z) + "]";
-}
-
 static float randf_range(float min, float max) {
     return min + ((max - min) * ((rand() / (float)RAND_MAX)));
 }

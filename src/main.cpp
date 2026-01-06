@@ -5,6 +5,7 @@
 #include <GLFW/glfw3.h>
 #include "input.h"
 #include "scene.h"
+#include <cstdlib>
 
 constexpr uint32_t WIDTH = 800;
 constexpr uint32_t HEIGHT = 600;
@@ -23,6 +24,9 @@ static void run() {
 
     float dt_sum = 0;
     uint32_t frame_counter = 0;
+
+    // seed random with current time
+    srand((unsigned int)time(NULL));
 
     scene.Init(graphics);
 
