@@ -10,6 +10,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
+
 constexpr float MOVE_SPEED = 10.0f;
 constexpr float SPRINT_SCALAR = 4.0f;
 constexpr float LOOK_SPEED = 0.007f;
@@ -18,53 +21,49 @@ constexpr float SPAWN_BOX_SIZE = 10.0f;
 
 // TODO: just use tinyobj loader please GODS PLEASE
 
-#pragma region // mesh creation
+#pragma region // helpers
 
-struct TriData {
-    uint32_t pos_uv_indices[3][2];
-    uint32_t normal_index;
-};
+static std::shared_ptr<Mesh> load_mesh(const std::string& path, const GraphicsContext& ctx) {
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
 
-static std::shared_ptr<Mesh> assemble_mesh(
-    const std::vector<glm::vec3>& positions,
-    const std::vector<glm::vec3>& normals,
-    const std::vector<glm::vec2>& uvs,
-    const std::vector<TriData>& triangles,
-    const GraphicsContext& ctx
-) {
-    std::vector<Vertex> vertices(triangles.size() * 3);
-    std::vector<uint32_t> indices(triangles.size() * 3);
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warn;
+    std::string err;
+
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, path.c_str())) {
+        throw std::runtime_error(err);
+    }
 
     uint32_t index_counter = 0;
-    uint32_t vertex_counter = 0;
-    for (size_t i = 0; i < triangles.size(); i++) {
-        TriData triangle = triangles[i];
+    for (const auto& shape : shapes) {
+        for (const auto& index : shape.mesh.indices) {
+            Vertex v = {
+                .pos = {
+                    attrib.vertices[3 * index.vertex_index + 0],
+                    attrib.vertices[3 * index.vertex_index + 1],
+                    attrib.vertices[3 * index.vertex_index + 2],
+                },
+                .normal = {
+                    attrib.normals[3 * index.normal_index + 0],
+                    attrib.normals[3 * index.normal_index + 1],
+                    attrib.normals[3 * index.normal_index + 2],
+                },
+                .uv = {
+                    attrib.texcoords[2 * index.texcoord_index + 0],
+                    attrib.texcoords[2 * index.texcoord_index + 1],
+                }
+            };
 
-        vertices[vertex_counter] = {
-            positions[triangle.pos_uv_indices[0][0]],
-            normals[triangle.normal_index],
-            uvs[triangle.pos_uv_indices[0][1]]
-        };
-        vertex_counter++;
-        vertices[vertex_counter] = {
-            positions[triangle.pos_uv_indices[1][0]],
-            normals[triangle.normal_index],
-            uvs[triangle.pos_uv_indices[1][1]]
-        };
-        vertex_counter++;
-        vertices[vertex_counter] = {
-            positions[triangle.pos_uv_indices[2][0]],
-            normals[triangle.normal_index],
-            uvs[triangle.pos_uv_indices[2][1]]
-        };
-        vertex_counter++;
+            // invert y coordinate in UVs
+            //   (0 is top left, not bottom left like OBJ specifies)
+            v.uv.y = 1.0f - v.uv.y;
 
-        indices[index_counter] = index_counter;
-        index_counter++;
-        indices[index_counter] = index_counter;
-        index_counter++;
-        indices[index_counter] = index_counter;
-        index_counter++;
+            vertices.push_back(v);
+            indices.push_back(index_counter++);
+        }
     }
 
     MeshCreateInfo mesh_info = {
@@ -73,73 +72,10 @@ static std::shared_ptr<Mesh> assemble_mesh(
         .indices = indices.data(),
         .num_indices = static_cast<uint32_t>(indices.size())
     };
-
     return std::make_shared<Mesh>(mesh_info, ctx);
 }
 
-static std::shared_ptr<Mesh> make_box_mesh(const GraphicsContext& ctx) {
-    std::vector<glm::vec3> positions = {
-        {-1.0f, -1.0f, +1.0f},
-        {+1.0f, -1.0f, +1.0f},
-        {-1.0f, +1.0f, +1.0f},
-        {+1.0f, +1.0f, +1.0f},
-        {-1.0f, +1.0f, -1.0f},
-        {+1.0f, +1.0f, -1.0f},
-        {-1.0f, -1.0f, -1.0f},
-        {+1.0f, -1.0f, -1.0f},
-
-        {-1.0f, -1.0f, +1.0f},
-        {+1.0f, -1.0f, +1.0f},
-        {-1.0f, +1.0f, +1.0f},
-        {+1.0f, +1.0f, +1.0f},
-        {-1.0f, +1.0f, -1.0f},
-        {+1.0f, +1.0f, -1.0f},
-        {-1.0f, -1.0f, -1.0f},
-        {+1.0f, -1.0f, -1.0f}
-    };
-
-    std::vector<glm::vec3> normals = {
-        {0.0f, 0.0f, 1.0f},
-        {0.0f, 1.0f, 0.0f},
-        {0.0f, 0.0f, -1.0f},
-        {0.0f, -1.0f, 0.0f},
-        {1.0f, 0.0f, 0.0f},
-        {-1.0f, 0.0f, 0.0f}
-    };
-
-    std::vector<glm::vec2> uvs = {
-        {0.0f, 0.0f},
-        {0.0f, 1.0f},
-        {1.0f, 0.0f},
-        {1.0f, 1.0f},
-    };
-
-    std::vector<TriData> triangles = {
-        {{{0, 0}, {1, 1}, {2, 2}}, 0},
-        {{{2, 2}, {1, 1}, {3, 3}}, 0},
-
-        {{{2, 0}, {3, 1}, {4, 2}}, 1},
-        {{{4, 2}, {3, 1}, {5, 3}}, 1},
-
-        {{{4, 0}, {5, 1}, {6, 2}}, 2},
-        {{{6, 2}, {5, 1}, {7, 3}}, 2},
-
-        {{{6, 0}, {7, 1}, {0, 2}}, 3},
-        {{{0, 2}, {7, 1}, {1, 3}}, 3},
-
-        {{{1, 0}, {7, 1}, {3, 2}}, 4},
-        {{{3, 2}, {7, 1}, {5, 3}}, 4},
-
-        {{{6, 0}, {0, 1}, {4, 2}}, 5},
-        {{{4, 2}, {0, 1}, {2, 3}}, 5},
-    };
-
-    return assemble_mesh(positions, normals, uvs, triangles, ctx);
-}
-
-#pragma endregion
-
-static std::shared_ptr<ImageWrapper> make_image(const std::string& path, const GraphicsContext& ctx) {
+static std::shared_ptr<ImageWrapper> load_image(const std::string& path, const GraphicsContext& ctx) {
     int width;
     int height;
     int channels;
@@ -176,10 +112,12 @@ static float randf_range(float min, float max) {
     return min + ((max - min) * ((rand() / (float)RAND_MAX)));
 }
 
+#pragma endregion
+
 void Scene::Init(GraphicsManager& graphics) {
     GraphicsContext ctx = graphics.get_context();
 
-    mesh = make_box_mesh(ctx);
+    mesh = load_mesh("res/cube.obj", ctx);
 
     camera = std::make_unique<Camera>(
         glm::vec3(0.0f, 5.0f, -10.0f),
@@ -190,7 +128,7 @@ void Scene::Init(GraphicsManager& graphics) {
     );
     camera->LookAt(glm::vec3(0.0f));
 
-    image = make_image("res/dogwho_is_also___rendered.png", ctx);
+    image = load_image("res/dogwho_is_also___rendered.png", ctx);
 
     SamplerWrapperCreateInfo sampler_create_info = {
         .min_filter = VK_FILTER_LINEAR,
