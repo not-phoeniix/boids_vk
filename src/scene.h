@@ -1,14 +1,14 @@
 #pragma once
 
-#include "graphics_manager.h"
-#include "mesh.h"
+#include "graphics/graphics_manager.h"
+#include "graphics/mesh.h"
 #include <memory>
 #include "camera.h"
 #include <vector>
 #include "glm_settings.h"
 #include <glm/glm.hpp>
-#include "image_wrapper.h"
-#include "sampler_wrapper.h"
+#include "graphics/image_wrapper.h"
+#include "graphics/sampler_wrapper.h"
 
 class Scene {
    private:

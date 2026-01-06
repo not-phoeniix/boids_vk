@@ -1,5 +1,5 @@
 #include <iostream>
-#include "graphics_manager.h"
+#include "graphics/graphics_manager.h"
 #include <stdexcept>
 #include <cstdlib>
 #include <GLFW/glfw3.h>

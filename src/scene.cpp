@@ -1,6 +1,6 @@
 #include "scene.h"
 
-#include "vertex.h"
+#include "graphics/vertex.h"
 #include <vulkan/vulkan.h>
 #include "input.h"
 #include <string>
