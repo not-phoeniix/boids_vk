@@ -123,7 +123,13 @@ static bool is_device_suitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
         swap_chain_adequate = !details.formats.empty() && !details.present_modes.empty();
     }
 
-    return indices.is_complete() && extensions_supported && swap_chain_adequate;
+    VkPhysicalDeviceFeatures features;
+    vkGetPhysicalDeviceFeatures(device, &features);
+
+    return indices.is_complete() &&
+           extensions_supported &&
+           swap_chain_adequate &&
+           features.samplerAnisotropy;
 }
 
 static VkSurfaceFormatKHR choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR>& formats) {
@@ -361,8 +367,9 @@ void GraphicsManager::CreateLogicalDevice() {
         queue_create_infos.push_back(queue_create_info);
     }
 
-    // we'll come back to this when we wanna add more fun features to the program
-    VkPhysicalDeviceFeatures device_features {};
+    VkPhysicalDeviceFeatures device_features = {
+        .samplerAnisotropy = VK_TRUE
+    };
 
     VkDeviceCreateInfo create_info = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,

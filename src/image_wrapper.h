@@ -25,7 +25,9 @@ class ImageWrapper {
     uint32_t width;
     uint32_t height;
 
+    void CreateImage(const ImageWrapperCreateInfo& create_info, const GraphicsContext& ctx);
     void CopyData(const void* data, const GraphicsContext& ctx);
+    void CreateImageView(const GraphicsContext& ctx);
 
    public:
     ImageWrapper(const ImageWrapperCreateInfo& create_info, const GraphicsContext& ctx);

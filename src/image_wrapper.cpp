@@ -9,6 +9,20 @@ ImageWrapper::ImageWrapper(const ImageWrapperCreateInfo& create_info, const Grap
     image_format(create_info.format),
     width(create_info.width),
     height(create_info.height) {
+    CreateImage(create_info, ctx);
+    CopyData(create_info.image_data, ctx);
+    CreateImageView(ctx);
+}
+
+ImageWrapper::~ImageWrapper() {
+    vkDeviceWaitIdle(device);
+
+    vkDestroyImage(device, image, nullptr);
+    vkFreeMemory(device, memory, nullptr);
+    vkDestroyImageView(device, view, nullptr);
+}
+
+void ImageWrapper::CreateImage(const ImageWrapperCreateInfo& create_info, const GraphicsContext& ctx) {
     VkImageCreateInfo image_create_info = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
@@ -51,15 +65,26 @@ ImageWrapper::ImageWrapper(const ImageWrapperCreateInfo& create_info, const Grap
     }
 
     vkBindImageMemory(device, image, memory, 0);
-
-    CopyData(create_info.image_data, ctx);
 }
 
-ImageWrapper::~ImageWrapper() {
-    vkDeviceWaitIdle(device);
+void ImageWrapper::CreateImageView(const GraphicsContext& ctx) {
+    VkImageViewCreateInfo create_info = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = image,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = image_format,
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        },
+    };
 
-    vkDestroyImage(device, image, nullptr);
-    vkFreeMemory(device, memory, nullptr);
+    if (vkCreateImageView(ctx.device, &create_info, nullptr, &view) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create image view!");
+    }
 }
 
 void ImageWrapper::CopyData(const void* data, const GraphicsContext& ctx) {
