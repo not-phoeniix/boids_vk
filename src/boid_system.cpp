@@ -3,10 +3,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/norm.hpp>
 
-constexpr uint32_t CHUNKS_PER_AXIS = 8;
+constexpr uint32_t CHUNKS_PER_AXIS = 10;
 
 constexpr float ADJACENT_SEARCH_RADIUS = 10.0f;
-constexpr float SEPARATE_STRENGTH = 0.4f;
+constexpr float SEPARATE_STRENGTH = 0.5f;
 constexpr float COHESION_STRENGTH = 3.0f;
 constexpr float ALIGNMENT_STRENGTH = 2.0f;
 

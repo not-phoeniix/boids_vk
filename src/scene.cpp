@@ -14,6 +14,8 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
 
+constexpr float PERFORMANCE_PRINT_INTERVAL = 1.0f;
+
 constexpr float MOVE_SPEED = 10.0f;
 constexpr float SPRINT_SCALAR = 4.0f;
 constexpr float LOOK_SPEED = 0.007f;
@@ -129,7 +131,7 @@ void Scene::Init(GraphicsManager& graphics) {
     mesh = load_mesh("res/cube.obj", ctx);
 
     camera = std::make_unique<Camera>(
-        glm::vec3(0.0f, 5.0f, -10.0f),
+        glm::vec3(0.0f, 50.0, -200.0f),
         graphics.get_aspect(),
         glm::radians(60.0f),
         0.01f,
@@ -164,11 +166,7 @@ void Scene::Deinit() {
     boid_system_destroy(&boid_system);
 }
 
-static float past_dt = 1.0f;
-
 void Scene::Update(float dt) {
-    past_dt = dt;
-    time += dt;
 
     // update camera <3
 
@@ -194,6 +192,24 @@ void Scene::Update(float dt) {
     float boid_time_start = glfwGetTime();
     boid_system_update(&boid_system, dt);
     float boid_time_end = glfwGetTime();
+
+    static float boid_time_sum = 0.0f;
+    static uint32_t frame_counter = 0;
+    boid_time_sum += boid_time_end - boid_time_start;
+    frame_counter++;
+
+    time += dt;
+
+    static float print_time_prev = 0;
+    if (time >= print_time_prev + PERFORMANCE_PRINT_INTERVAL) {
+        print_time_prev = time;
+
+        float avg = boid_time_sum / static_cast<float>(frame_counter);
+        std::cout << "boid sim avg time: " << (avg * 1000) << "ms\n";
+
+        boid_time_sum = 0;
+        frame_counter = 0;
+    }
 }
 
 void Scene::Draw(GraphicsManager& graphics) {
