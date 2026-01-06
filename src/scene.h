@@ -8,11 +8,13 @@
 #include "glm_settings.h"
 #include <glm/glm.hpp>
 #include "image_wrapper.h"
+#include "sampler_wrapper.h"
 
 class Scene {
    private:
     std::shared_ptr<Mesh> mesh;
     std::shared_ptr<ImageWrapper> image;
+    std::unique_ptr<SamplerWrapper> sampler;
     std::unique_ptr<Camera> camera;
     std::vector<glm::vec3> colors;
     std::vector<glm::vec3> positions;

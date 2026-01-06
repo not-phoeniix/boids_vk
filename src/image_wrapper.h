@@ -34,7 +34,7 @@ class ImageWrapper {
     ~ImageWrapper();
 
     VkImage get_image() const { return image; }
-    VkImageView get_image_view() const { return view; }
+    VkImageView get_view() const { return view; }
     uint32_t get_width() const { return width; }
     uint32_t get_height() const { return height; }
 };

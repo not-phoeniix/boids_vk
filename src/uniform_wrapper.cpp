@@ -18,11 +18,11 @@ void UniformWrapper::CreateBuffers(uint32_t count, const GraphicsContext& ctx) {
     }
 }
 
-void UniformWrapper::CreateDescriptors(uint32_t count, VkDescriptorSetLayout layout, VkDescriptorPool pool) {
-    std::vector<VkDescriptorSetLayout> layouts(count, layout);
+void UniformWrapper::CreateDescriptors(uint32_t count, const UniformWrapperCreateInfo& create_info) {
+    std::vector<VkDescriptorSetLayout> layouts(count, create_info.layout);
     VkDescriptorSetAllocateInfo alloc_info = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .descriptorPool = pool,
+        .descriptorPool = create_info.pool,
         .descriptorSetCount = count,
         .pSetLayouts = layouts.data()
     };
@@ -39,23 +39,48 @@ void UniformWrapper::CreateDescriptors(uint32_t count, VkDescriptorSetLayout lay
             .range = sizeof(UniformBufferObject)
         };
 
-        VkWriteDescriptorSet write = {
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = descriptor_sets[i],
-            .dstBinding = 0,
-            //! descriptors can also be arrays! come back to here when
-            //!   you are using instanced rendering for the boids
-            //! (this is the starting index to write to)
-            // TODO: change this later as WELL so we can pass in a ton of data
-            .dstArrayElement = 0,
-            .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .pImageInfo = nullptr,       // if we had samplers
-            .pBufferInfo = &buffer_info, // our buffers we're actually gonna be using
-            .pTexelBufferView = nullptr  // if we had other buffer stuff
+        VkDescriptorImageInfo image_info = {
+            .sampler = create_info.sampler,
+            .imageView = create_info.image_view,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
 
-        vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
+        std::array<VkWriteDescriptorSet, 2> writes = {
+            (VkWriteDescriptorSet) {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet = descriptor_sets[i],
+                .dstBinding = 0,
+                //! descriptors can also be arrays! come back to here when
+                //!   you are using instanced rendering for the boids
+                //! (this is the starting index to write to)
+                // TODO: change this later as WELL so we can pass in a ton of data
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .pImageInfo = nullptr,
+                .pBufferInfo = &buffer_info,
+                .pTexelBufferView = nullptr
+            },
+            (VkWriteDescriptorSet) {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet = descriptor_sets[i],
+                .dstBinding = 1,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .pImageInfo = &image_info,
+                .pBufferInfo = nullptr,
+                .pTexelBufferView = nullptr
+            }
+        };
+
+        vkUpdateDescriptorSets(
+            device,
+            static_cast<uint32_t>(writes.size()),
+            writes.data(),
+            0,
+            nullptr
+        );
     }
 }
 
@@ -66,7 +91,7 @@ UniformWrapper::UniformWrapper(
     frame_flight_count(create_info.frame_flight_count),
     frame_flight_index(0) {
     CreateBuffers(create_info.frame_flight_count, ctx);
-    CreateDescriptors(create_info.frame_flight_count, create_info.layout, create_info.pool);
+    CreateDescriptors(create_info.frame_flight_count, create_info);
 }
 
 UniformWrapper::~UniformWrapper() {

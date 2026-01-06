@@ -786,20 +786,32 @@ void GraphicsManager::CreateSyncObjects() {
 }
 
 void GraphicsManager::CreateDescriptorPool() {
-    VkDescriptorPoolSize pool_size = {
-        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = MAX_NUM_UNIFORMS * MAX_FRAMES_IN_FLIGHT
+    std::array<VkDescriptorPoolSize, 2> pool_sizes = {
+        (VkDescriptorPoolSize) {
+            .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            // TODO: change the descriptor count to less than this
+            //   see what happens if it doesn't match the maxSets below !
+            .descriptorCount = MAX_NUM_UNIFORMS * MAX_FRAMES_IN_FLIGHT
+        },
+        (VkDescriptorPoolSize) {
+            .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = MAX_NUM_UNIFORMS * MAX_FRAMES_IN_FLIGHT
+        },
     };
 
     VkDescriptorPoolCreateInfo create_info = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .maxSets = MAX_NUM_UNIFORMS * MAX_FRAMES_IN_FLIGHT,
-        .poolSizeCount = 1,
-        .pPoolSizes = &pool_size,
+        .poolSizeCount = static_cast<uint32_t>(pool_sizes.size()),
+        .pPoolSizes = pool_sizes.data(),
     };
 
-    if (vkCreateDescriptorPool(device, &create_info, nullptr, &descriptor_pool) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create descriptor pool!");
+    VkResult result = vkCreateDescriptorPool(device, &create_info, nullptr, &descriptor_pool);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error(
+            "Failed to create descriptor pool! result: " +
+            std::to_string(static_cast<int32_t>(result))
+        );
     }
 }
 
@@ -814,10 +826,23 @@ void GraphicsManager::CreateDescriptorSetLayout() {
         .pImmutableSamplers = nullptr
     };
 
+    VkDescriptorSetLayoutBinding sampler_layout_binding = {
+        .binding = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .pImmutableSamplers = nullptr
+    };
+
+    std::array<VkDescriptorSetLayoutBinding, 2> bindings = {
+        ubo_layout_binding,
+        sampler_layout_binding
+    };
+
     VkDescriptorSetLayoutCreateInfo create_info = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = 1,
-        .pBindings = &ubo_layout_binding
+        .bindingCount = static_cast<uint32_t>(bindings.size()),
+        .pBindings = bindings.data()
     };
 
     if (vkCreateDescriptorSetLayout(device, &create_info, nullptr, &descriptor_set_layout) != VK_SUCCESS) {
@@ -984,7 +1009,7 @@ void GraphicsManager::EndAndPresent() {
     }
 }
 
-std::shared_ptr<UniformWrapper> GraphicsManager::MakeNewUniform() {
+std::shared_ptr<UniformWrapper> GraphicsManager::MakeNewUniform(VkImageView image_view, VkSampler sampler) {
     if (uniforms.size() >= MAX_NUM_UNIFORMS) {
         return nullptr;
     }
@@ -992,7 +1017,9 @@ std::shared_ptr<UniformWrapper> GraphicsManager::MakeNewUniform() {
     UniformWrapperCreateInfo create_info = {
         .frame_flight_count = MAX_FRAMES_IN_FLIGHT,
         .layout = descriptor_set_layout,
-        .pool = descriptor_pool
+        .pool = descriptor_pool,
+        .image_view = image_view,
+        .sampler = sampler
     };
 
     auto uniform = std::make_shared<UniformWrapper>(

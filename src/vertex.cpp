@@ -12,18 +12,27 @@ VkVertexInputBindingDescription vertex_get_binding_desc() {
 }
 
 // describes all members of vertex struct <3
-std::array<VkVertexInputAttributeDescription, 2> vertex_get_attribute_descs() {
-    std::array<VkVertexInputAttributeDescription, 2> descs = {};
-
-    descs[0].binding = 0;
-    descs[0].location = 0;
-    descs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    descs[0].offset = offsetof(Vertex, pos);
-
-    descs[1].binding = 0;
-    descs[1].location = 1;
-    descs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    descs[1].offset = offsetof(Vertex, normal);
+std::array<VkVertexInputAttributeDescription, 3> vertex_get_attribute_descs() {
+    std::array<VkVertexInputAttributeDescription, 3> descs = {
+        (VkVertexInputAttributeDescription) {
+            .location = 0,
+            .binding = 0,
+            .format = VK_FORMAT_R32G32B32_SFLOAT,
+            .offset = offsetof(Vertex, pos)
+        },
+        (VkVertexInputAttributeDescription) {
+            .location = 1,
+            .binding = 0,
+            .format = VK_FORMAT_R32G32B32_SFLOAT,
+            .offset = offsetof(Vertex, normal)
+        },
+        (VkVertexInputAttributeDescription) {
+            .location = 2,
+            .binding = 0,
+            .format = VK_FORMAT_R32G32_SFLOAT,
+            .offset = offsetof(Vertex, uv)
+        },
+    };
 
     return descs;
 }

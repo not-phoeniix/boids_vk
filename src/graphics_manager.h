@@ -72,9 +72,8 @@ class GraphicsManager {
 
     void Begin();
     void EndAndPresent();
-    // void CopyUniformData(const UniformBufferObject& ubo);
 
-    std::shared_ptr<UniformWrapper> MakeNewUniform();
+    std::shared_ptr<UniformWrapper> MakeNewUniform(VkImageView image_view, VkSampler sampler);
     void CmdBindUniform(std::shared_ptr<UniformWrapper> uniform);
 
     // getters/setters

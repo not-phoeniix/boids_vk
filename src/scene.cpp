@@ -16,14 +16,19 @@ constexpr float LOOK_SPEED = 0.007f;
 constexpr uint32_t OBJECT_COUNT = 512;
 constexpr float SPAWN_BOX_SIZE = 10.0f;
 
+// TODO: just use tinyobj loader please GODS PLEASE
+
+#pragma region // mesh creation
+
 struct TriData {
-    uint16_t pos_indices[3];
-    uint16_t normal_index;
+    uint32_t pos_uv_indices[3][2];
+    uint32_t normal_index;
 };
 
 static std::shared_ptr<Mesh> assemble_mesh(
     const std::vector<glm::vec3>& positions,
     const std::vector<glm::vec3>& normals,
+    const std::vector<glm::vec2>& uvs,
     const std::vector<TriData>& triangles,
     const GraphicsContext& ctx
 ) {
@@ -35,11 +40,23 @@ static std::shared_ptr<Mesh> assemble_mesh(
     for (size_t i = 0; i < triangles.size(); i++) {
         TriData triangle = triangles[i];
 
-        vertices[vertex_counter] = {positions[triangle.pos_indices[0]], normals[triangle.normal_index]};
+        vertices[vertex_counter] = {
+            positions[triangle.pos_uv_indices[0][0]],
+            normals[triangle.normal_index],
+            uvs[triangle.pos_uv_indices[0][1]]
+        };
         vertex_counter++;
-        vertices[vertex_counter] = {positions[triangle.pos_indices[1]], normals[triangle.normal_index]};
+        vertices[vertex_counter] = {
+            positions[triangle.pos_uv_indices[1][0]],
+            normals[triangle.normal_index],
+            uvs[triangle.pos_uv_indices[1][1]]
+        };
         vertex_counter++;
-        vertices[vertex_counter] = {positions[triangle.pos_indices[2]], normals[triangle.normal_index]};
+        vertices[vertex_counter] = {
+            positions[triangle.pos_uv_indices[2][0]],
+            normals[triangle.normal_index],
+            uvs[triangle.pos_uv_indices[2][1]]
+        };
         vertex_counter++;
 
         indices[index_counter] = index_counter;
@@ -90,28 +107,37 @@ static std::shared_ptr<Mesh> make_box_mesh(const GraphicsContext& ctx) {
         {-1.0f, 0.0f, 0.0f}
     };
 
-    std::vector<TriData> triangles = {
-        {{0, 1, 2}, 0},
-        {{2, 1, 3}, 0},
-
-        {{2, 3, 4}, 1},
-        {{4, 3, 5}, 1},
-
-        {{4, 5, 6}, 2},
-        {{6, 5, 7}, 2},
-
-        {{6, 7, 0}, 3},
-        {{0, 7, 1}, 3},
-
-        {{1, 7, 3}, 4},
-        {{3, 7, 5}, 4},
-
-        {{6, 0, 4}, 5},
-        {{4, 0, 2}, 5},
+    std::vector<glm::vec2> uvs = {
+        {0.0f, 0.0f},
+        {0.0f, 1.0f},
+        {1.0f, 0.0f},
+        {1.0f, 1.0f},
     };
 
-    return assemble_mesh(positions, normals, triangles, ctx);
+    std::vector<TriData> triangles = {
+        {{{0, 0}, {1, 1}, {2, 2}}, 0},
+        {{{2, 2}, {1, 1}, {3, 3}}, 0},
+
+        {{{2, 0}, {3, 1}, {4, 2}}, 1},
+        {{{4, 2}, {3, 1}, {5, 3}}, 1},
+
+        {{{4, 0}, {5, 1}, {6, 2}}, 2},
+        {{{6, 2}, {5, 1}, {7, 3}}, 2},
+
+        {{{6, 0}, {7, 1}, {0, 2}}, 3},
+        {{{0, 2}, {7, 1}, {1, 3}}, 3},
+
+        {{{1, 0}, {7, 1}, {3, 2}}, 4},
+        {{{3, 2}, {7, 1}, {5, 3}}, 4},
+
+        {{{6, 0}, {0, 1}, {4, 2}}, 5},
+        {{{4, 2}, {0, 1}, {2, 3}}, 5},
+    };
+
+    return assemble_mesh(positions, normals, uvs, triangles, ctx);
 }
+
+#pragma endregion
 
 static std::shared_ptr<ImageWrapper> make_image(const std::string& path, const GraphicsContext& ctx) {
     int width;
@@ -158,7 +184,9 @@ static float randf_range(float min, float max) {
 }
 
 void Scene::Init(GraphicsManager& graphics) {
-    mesh = make_box_mesh(graphics.get_context());
+    GraphicsContext ctx = graphics.get_context();
+
+    mesh = make_box_mesh(ctx);
 
     camera = std::make_unique<Camera>(
         glm::vec3(0.0f, 5.0f, -10.0f),
@@ -169,7 +197,16 @@ void Scene::Init(GraphicsManager& graphics) {
     );
     camera->LookAt(glm::vec3(0.0f));
 
-    image = make_image("res/dogwho_is_also___rendered.png", graphics.get_context());
+    image = make_image("res/dogwho_is_also___rendered.png", ctx);
+
+    SamplerWrapperCreateInfo sampler_create_info = {
+        .min_filter = VK_FILTER_LINEAR,
+        .mag_filter = VK_FILTER_LINEAR,
+        .address_u = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .address_v = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .address_w = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+    };
+    sampler = std::make_unique<SamplerWrapper>(sampler_create_info, ctx);
 
     colors.resize(OBJECT_COUNT);
     positions.resize(OBJECT_COUNT);
@@ -205,7 +242,7 @@ void Scene::Init(GraphicsManager& graphics) {
             randf_range(0.0f, 1.0f),
         };
 
-        uniforms[i] = graphics.MakeNewUniform();
+        uniforms[i] = graphics.MakeNewUniform(image->get_view(), sampler->get_sampler());
     }
 }
 

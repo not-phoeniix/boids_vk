@@ -12,6 +12,8 @@ struct UniformWrapperCreateInfo {
     uint32_t frame_flight_count;
     VkDescriptorSetLayout layout;
     VkDescriptorPool pool;
+    VkImageView image_view;
+    VkSampler sampler;
 };
 
 class UniformWrapper {
@@ -23,7 +25,7 @@ class UniformWrapper {
     std::vector<std::unique_ptr<BufferWrapper>> uniform_buffers;
 
     void CreateBuffers(uint32_t count, const GraphicsContext& ctx);
-    void CreateDescriptors(uint32_t count, VkDescriptorSetLayout layout, VkDescriptorPool pool);
+    void CreateDescriptors(uint32_t count, const UniformWrapperCreateInfo& create_info);
 
    public:
     UniformWrapper(const UniformWrapperCreateInfo& create_info, const GraphicsContext& ctx);
