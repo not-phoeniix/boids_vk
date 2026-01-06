@@ -8,7 +8,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb/stb_image.h>
+#include "stb_image.h"
 
 constexpr float MOVE_SPEED = 10.0f;
 constexpr float SPRINT_SCALAR = 4.0f;
