@@ -6,6 +6,7 @@
 #include <string>
 #include <iostream>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/norm.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -16,8 +17,9 @@
 constexpr float MOVE_SPEED = 10.0f;
 constexpr float SPRINT_SCALAR = 4.0f;
 constexpr float LOOK_SPEED = 0.007f;
-constexpr uint32_t OBJECT_COUNT = 512;
-constexpr float SPAWN_BOX_SIZE = 10.0f;
+constexpr uint32_t OBJECT_COUNT = 2000;
+constexpr float SPAWN_BOX_SIZE = 150.0f;
+constexpr glm::vec3 BOID_COLOR = {1.0f, 0.0f, 0.1f};
 
 // TODO: just use tinyobj loader please GODS PLEASE
 
@@ -108,8 +110,15 @@ static std::shared_ptr<ImageWrapper> load_image(const std::string& path, const G
     return image;
 }
 
-static float randf_range(float min, float max) {
-    return min + ((max - min) * ((rand() / (float)RAND_MAX)));
+static glm::vec3 get_rot_look_at(const glm::vec3& source, const glm::vec3& target) {
+    glm::vec3 delta = target - source;
+    if (glm::length2(delta) > FLT_EPSILON) {
+        delta = glm::normalize(delta);
+    }
+
+    float yaw = atan2f(delta.x, delta.z);
+    float pitch = asinf(-delta.y);
+    return glm::vec3(pitch, yaw, 0);
 }
 
 #pragma endregion
@@ -139,40 +148,9 @@ void Scene::Init(GraphicsManager& graphics) {
     };
     sampler = std::make_unique<SamplerWrapper>(sampler_create_info, ctx);
 
-    colors.resize(OBJECT_COUNT);
-    positions.resize(OBJECT_COUNT);
-    rotations.resize(OBJECT_COUNT);
-    rot_speeds.resize(OBJECT_COUNT);
+    boid_system_populate(&boid_system, OBJECT_COUNT, SPAWN_BOX_SIZE);
     uniforms.resize(OBJECT_COUNT);
     for (uint32_t i = 0; i < OBJECT_COUNT; i++) {
-        glm::vec3 pos = {
-            randf_range(-SPAWN_BOX_SIZE / 2.0f, SPAWN_BOX_SIZE / 2.0f),
-            randf_range(-SPAWN_BOX_SIZE / 2.0f, SPAWN_BOX_SIZE / 2.0f),
-            randf_range(-SPAWN_BOX_SIZE / 2.0f, SPAWN_BOX_SIZE / 2.0f)
-        };
-        pos *= SPAWN_BOX_SIZE;
-        positions[i] = pos;
-
-        glm::vec3 rot = {
-            randf_range(0.0f, M_PI * 2),
-            randf_range(0.0f, M_PI * 2),
-            randf_range(0.0f, M_PI * 2)
-        };
-        rotations[i] = rot;
-
-        glm::vec3 rot_speed = {
-            randf_range(0.0f, M_PI * 2),
-            randf_range(0.0f, M_PI * 2),
-            randf_range(0.0f, M_PI * 2)
-        };
-        rot_speeds[i] = rot_speed;
-
-        colors[i] = {
-            randf_range(0.0f, 1.0f),
-            randf_range(0.0f, 1.0f),
-            randf_range(0.0f, 1.0f),
-        };
-
         uniforms[i] = graphics.MakeNewUniform(image->get_view(), sampler->get_sampler());
     }
 }
@@ -182,11 +160,8 @@ void Scene::Deinit() {
     mesh.reset();
     image.reset();
     camera.reset();
-    positions.clear();
-    rotations.clear();
-    rot_speeds.clear();
-    colors.clear();
     uniforms.clear();
+    boid_system_destroy(&boid_system);
 }
 
 static float past_dt = 1.0f;
@@ -213,6 +188,12 @@ void Scene::Update(float dt) {
     if (Input::get_lmb_down()) {
         camera->RotateBy(look);
     }
+
+    // update boid system
+
+    float boid_time_start = glfwGetTime();
+    boid_system_update(&boid_system, dt);
+    float boid_time_end = glfwGetTime();
 }
 
 void Scene::Draw(GraphicsManager& graphics) {
@@ -237,24 +218,27 @@ void Scene::Draw(GraphicsManager& graphics) {
 
     glm::vec3 ambient(0.005f);
 
-    for (uint32_t i = 0; i < OBJECT_COUNT; i++) {
-        glm::mat4 world = glm::translate(glm::mat4(1.0f), positions[i]);
-        rotations[i] += (rot_speeds[i] * past_dt);
-        glm::vec3 rot = rotations[i];
+    for (uint32_t b = 0; b < boid_system.boid_count; b++) {
+        // make matrices
+        glm::vec3 pos = boid_system.boid_positions[b];
+        glm::vec3 rot = get_rot_look_at(pos, pos + boid_system.boid_velocities[b]);
+        glm::mat4 world = glm::translate(glm::mat4(1.0f), pos);
         world = glm::rotate(world, rot.z, glm::vec3(0.0f, 0.0f, 1.0f));
         world = glm::rotate(world, rot.y, glm::vec3(0.0f, 1.0f, 0.0f));
         world = glm::rotate(world, rot.x, glm::vec3(1.0f, 0.0f, 0.0f));
 
+        // copy uniform data
         UniformBufferObject ubo = {
             .world = world,
             .view = camera->get_view(),
             .proj = camera->get_proj(),
-            .color = colors[i],
+            .color = BOID_COLOR,
             .ambient = ambient
         };
-        uniforms[i]->CopyData(ubo);
-        graphics.CmdBindUniform(uniforms[i]);
+        uniforms[b]->CopyData(ubo);
+        graphics.CmdBindUniform(uniforms[b]);
 
+        // draw boid box
         vkCmdDrawIndexed(
             graphics.get_command_buffer(),
             mesh->get_num_indices(),

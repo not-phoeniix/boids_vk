@@ -9,6 +9,7 @@
 #include <glm/glm.hpp>
 #include "graphics/image_wrapper.h"
 #include "graphics/sampler_wrapper.h"
+#include "boid_system.h"
 
 class Scene {
    private:
@@ -16,10 +17,7 @@ class Scene {
     std::shared_ptr<ImageWrapper> image;
     std::unique_ptr<SamplerWrapper> sampler;
     std::unique_ptr<Camera> camera;
-    std::vector<glm::vec3> colors;
-    std::vector<glm::vec3> positions;
-    std::vector<glm::vec3> rotations;
-    std::vector<glm::vec3> rot_speeds;
+    BoidSystem boid_system;
     std::vector<std::shared_ptr<UniformWrapper>> uniforms;
     float time = 0.0f;
 

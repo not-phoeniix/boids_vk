@@ -13,7 +13,7 @@
 #include "vk_helpers.h"
 
 constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
-constexpr uint32_t MAX_NUM_UNIFORMS = 512;
+constexpr uint32_t MAX_NUM_UNIFORMS = 20000;
 constexpr bool ENABLE_VALIDATION_LAYERS = true;
 const std::vector<const char*> VALIDATION_LAYERS = {
     "VK_LAYER_KHRONOS_validation"
