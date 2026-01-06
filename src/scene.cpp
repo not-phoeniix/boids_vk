@@ -162,10 +162,10 @@ static std::shared_ptr<ImageWrapper> make_image(const std::string& path, const G
         .tiling = VK_IMAGE_TILING_OPTIMAL,
         .image_usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         .memory_properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        .image_data = pixels
+        .view_aspect_flags = VK_IMAGE_ASPECT_COLOR_BIT
     };
-
     auto image = std::make_shared<ImageWrapper>(create_info, ctx);
+    image->CopyData(pixels, ctx);
 
     stbi_image_free(pixels);
 

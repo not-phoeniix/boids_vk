@@ -9,6 +9,7 @@
 #include "uniform_buffer_object.h"
 #include "uniform_wrapper.h"
 #include "graphics_context.h"
+#include "image_wrapper.h"
 
 class GraphicsManager {
    private:
@@ -28,6 +29,7 @@ class GraphicsManager {
     uint32_t frame_flight_index = 0;
     bool framebuffer_resized = false;
 
+    std::unique_ptr<ImageWrapper> depth_image;
     VkRenderPass render_pass;
     VkPipelineLayout pipeline_layout;
     VkPipeline graphics_pipeline;
@@ -52,6 +54,7 @@ class GraphicsManager {
     void CreateSurface();
     void CreateSwapChain();
     void CreateImageViews();
+    void CreateDepthResources();
 
     void CreateDescriptorSetLayout();
     void CreateDescriptorPool();

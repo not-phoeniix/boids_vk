@@ -72,7 +72,13 @@ void end_single_use_commands(VkCommandBuffer command_buffer, const GraphicsConte
     vkFreeCommandBuffers(ctx.device, ctx.command_pool, 1, &command_buffer);
 }
 
-void transition_image_layout(VkImage image, VkFormat format, VkImageLayout prev_layout, VkImageLayout new_layout, const GraphicsContext& ctx) {
+void transition_image_layout(
+    VkImage image,
+    VkFormat format,
+    VkImageLayout prev_layout,
+    VkImageLayout new_layout,
+    const GraphicsContext& ctx
+) {
     VkCommandBuffer command_buffer = begin_single_use_commands(ctx);
 
     // use a barrier to transition layouts :D
@@ -94,7 +100,8 @@ void transition_image_layout(VkImage image, VkFormat format, VkImageLayout prev_
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = image,
         .subresourceRange = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            // we'll specify aspect mask in a second...
+            .aspectMask = 0,
             .baseMipLevel = 0,
             .levelCount = 1,
             .baseArrayLayer = 0,
@@ -106,21 +113,57 @@ void transition_image_layout(VkImage image, VkFormat format, VkImageLayout prev_
     VkPipelineStageFlags src_stage = 0;
     VkPipelineStageFlags dst_stage = 0;
 
-    if (prev_layout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    bool success = true;
 
-        src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        dst_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    switch (prev_layout) {
+        case VK_IMAGE_LAYOUT_UNDEFINED:
+            barrier.srcAccessMask = 0;
+            src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            break;
 
-    } else if (prev_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && new_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            break;
 
-        src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        dst_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        default:
+            success = false;
+            break;
+    }
 
-    } else {
+    switch (new_layout) {
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            dst_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            break;
+
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            dst_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            break;
+
+        case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL:
+            barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            dst_stage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+            // if there is a stencil component, specify stencil buffer mask too !
+            if (
+                format == VK_FORMAT_D32_SFLOAT_S8_UINT ||
+                format == VK_FORMAT_D24_UNORM_S8_UINT
+            ) {
+                barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+            }
+            break;
+
+        default:
+            success = false;
+            break;
+    }
+
+    if (!success) {
         throw std::runtime_error("Unsupported layout transition combination!");
     }
 

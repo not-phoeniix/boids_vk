@@ -10,7 +10,7 @@ struct ImageWrapperCreateInfo {
     VkImageTiling tiling;
     VkImageUsageFlags image_usage;
     VkMemoryPropertyFlags memory_properties;
-    const void* image_data;
+    VkImageAspectFlags view_aspect_flags;
 };
 
 class ImageWrapper {
@@ -26,12 +26,14 @@ class ImageWrapper {
     uint32_t height;
 
     void CreateImage(const ImageWrapperCreateInfo& create_info, const GraphicsContext& ctx);
-    void CopyData(const void* data, const GraphicsContext& ctx);
-    void CreateImageView(const GraphicsContext& ctx);
+    void CreateImageView(const ImageWrapperCreateInfo& create_info, const GraphicsContext& ctx);
 
    public:
     ImageWrapper(const ImageWrapperCreateInfo& create_info, const GraphicsContext& ctx);
     ~ImageWrapper();
+
+    void CopyData(const void* data, const GraphicsContext& ctx);
+    void TransitionToLayout(VkImageLayout layout, const GraphicsContext& ctx);
 
     VkImage get_image() const { return image; }
     VkImageView get_view() const { return view; }

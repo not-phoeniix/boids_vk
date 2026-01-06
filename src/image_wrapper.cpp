@@ -10,8 +10,7 @@ ImageWrapper::ImageWrapper(const ImageWrapperCreateInfo& create_info, const Grap
     width(create_info.width),
     height(create_info.height) {
     CreateImage(create_info, ctx);
-    CopyData(create_info.image_data, ctx);
-    CreateImageView(ctx);
+    CreateImageView(create_info, ctx);
 }
 
 ImageWrapper::~ImageWrapper() {
@@ -67,14 +66,14 @@ void ImageWrapper::CreateImage(const ImageWrapperCreateInfo& create_info, const 
     vkBindImageMemory(device, image, memory, 0);
 }
 
-void ImageWrapper::CreateImageView(const GraphicsContext& ctx) {
-    VkImageViewCreateInfo create_info = {
+void ImageWrapper::CreateImageView(const ImageWrapperCreateInfo& create_info, const GraphicsContext& ctx) {
+    VkImageViewCreateInfo view_create_info = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .image = image,
         .viewType = VK_IMAGE_VIEW_TYPE_2D,
         .format = image_format,
         .subresourceRange = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .aspectMask = create_info.view_aspect_flags,
             .baseMipLevel = 0,
             .levelCount = 1,
             .baseArrayLayer = 0,
@@ -82,7 +81,7 @@ void ImageWrapper::CreateImageView(const GraphicsContext& ctx) {
         },
     };
 
-    if (vkCreateImageView(ctx.device, &create_info, nullptr, &view) != VK_SUCCESS) {
+    if (vkCreateImageView(ctx.device, &view_create_info, nullptr, &view) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create image view!");
     }
 }
@@ -96,22 +95,20 @@ void ImageWrapper::CopyData(const void* data, const GraphicsContext& ctx) {
     BufferWrapper staging_buffer(staging_create_info, ctx);
     staging_buffer.CopyFromHostAuto(data, static_cast<size_t>(size));
 
+    TransitionToLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, ctx);
+
+    copy_buffer_to_image(staging_buffer.get_buffer(), image, width, height, ctx);
+
+    TransitionToLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, ctx);
+}
+
+void ImageWrapper::TransitionToLayout(VkImageLayout layout, const GraphicsContext& ctx) {
     transition_image_layout(
         image,
         image_format,
         image_layout,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        layout,
         ctx
     );
-
-    copy_buffer_to_image(staging_buffer.get_buffer(), image, width, height, ctx);
-
-    transition_image_layout(
-        image,
-        image_format,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        ctx
-    );
-    image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    image_layout = layout;
 }
