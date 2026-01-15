@@ -232,7 +232,27 @@ void Scene::Draw(GraphicsManager& graphics) {
         VK_INDEX_TYPE_UINT32
     );
 
-    glm::vec3 ambient(0.005f);
+    CameraPushConstants camera_data = {
+        .view = camera->get_view(),
+        .proj = camera->get_proj()
+    };
+    graphics.CmdPushConstants(
+        &camera_data,
+        sizeof(camera_data),
+        VK_SHADER_STAGE_VERTEX_BIT,
+        0
+    );
+
+    PixelPushConstants pixel_data = {
+        .color = BOID_COLOR,
+        .ambient = glm::vec3(0.005f)
+    };
+    graphics.CmdPushConstants(
+        &pixel_data,
+        sizeof(pixel_data),
+        VK_SHADER_STAGE_FRAGMENT_BIT,
+        sizeof(CameraPushConstants)
+    );
 
     for (uint32_t b = 0; b < boid_system.boid_count; b++) {
         // make matrices
@@ -245,11 +265,7 @@ void Scene::Draw(GraphicsManager& graphics) {
 
         // copy uniform data
         UniformBufferObject ubo = {
-            .world = world,
-            .view = camera->get_view(),
-            .proj = camera->get_proj(),
-            .color = BOID_COLOR,
-            .ambient = ambient
+            .world = world
         };
         uniforms[b]->CopyData(ubo);
         graphics.CmdBindUniform(uniforms[b]);

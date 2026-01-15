@@ -728,12 +728,25 @@ void GraphicsManager::CreateGraphicsPipeline() {
 
     // ~~~ pipeline layout (UNIFORMS!!! :D) ~~~
 
+    std::array<VkPushConstantRange, 2> push_constant_ranges = {
+        (VkPushConstantRange) {
+            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+            .offset = 0,
+            .size = sizeof(CameraPushConstants)
+        },
+        (VkPushConstantRange) {
+            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .offset = (sizeof(CameraPushConstants) / 16) * 16,
+            .size = sizeof(PixelPushConstants)
+        }
+    };
+
     VkPipelineLayoutCreateInfo layout_create_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = 1,
         .pSetLayouts = &descriptor_set_layout,
-        .pushConstantRangeCount = 0,
-        .pPushConstantRanges = nullptr
+        .pushConstantRangeCount = static_cast<uint32_t>(push_constant_ranges.size()),
+        .pPushConstantRanges = push_constant_ranges.data()
     };
 
     if (vkCreatePipelineLayout(device, &layout_create_info, nullptr, &pipeline_layout) != VK_SUCCESS) {
@@ -1123,6 +1136,17 @@ void GraphicsManager::CmdBindUniform(std::shared_ptr<UniformWrapper> uniform) {
         &set,
         0,
         nullptr
+    );
+}
+
+void GraphicsManager::CmdPushConstants(const void* data, size_t data_size, VkShaderStageFlags shader_stage, uint32_t offset) {
+    vkCmdPushConstants(
+        command_buffers[frame_flight_index],
+        pipeline_layout,
+        shader_stage,
+        offset,
+        data_size,
+        data
     );
 }
 

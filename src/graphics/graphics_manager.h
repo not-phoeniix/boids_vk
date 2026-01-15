@@ -10,6 +10,8 @@
 #include "uniform_wrapper.h"
 #include "graphics_context.h"
 #include "image_wrapper.h"
+#include "camera_push_constants.h"
+#include "pixel_push_constants.h"
 
 class GraphicsManager {
    private:
@@ -78,6 +80,7 @@ class GraphicsManager {
 
     std::shared_ptr<UniformWrapper> MakeNewUniform(VkImageView image_view, VkSampler sampler);
     void CmdBindUniform(std::shared_ptr<UniformWrapper> uniform);
+    void CmdPushConstants(const void* data, size_t data_size, VkShaderStageFlags shader_stage, uint32_t offset);
 
     // getters/setters
 

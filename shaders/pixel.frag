@@ -1,13 +1,15 @@
 #version 450
 
-layout(location = 0) in vec3 inColor;
+layout(push_constant, std430) uniform PushConstants {
+    layout(offset=128) vec3 color;
+    vec3 ambient;
+};
+layout(binding = 1) uniform sampler2D texSampler;
+
 layout(location = 1) in vec3 inNormal;
-layout(location = 2) in vec3 inAmbient;
 layout(location = 3) in vec2 inUV;
 
 layout(location = 0) out vec4 outColor;
-
-layout(binding = 1) uniform sampler2D texSampler;
 
 vec3 lambert_diffuse(vec3 lightColor, vec3 lightDir, float lightIntensity, vec3 surfaceColor, vec3 surfaceNormal) {
     float scalar = max(dot(-lightDir, surfaceNormal), 0.0);
@@ -17,9 +19,9 @@ vec3 lambert_diffuse(vec3 lightColor, vec3 lightDir, float lightIntensity, vec3 
 void main() {
     vec3 totalColor = vec3(0.0, 0.0, 0.0);
 
-    vec3 surfaceColor = texture(texSampler, inUV).rgb * inColor;
+    vec3 surfaceColor = texture(texSampler, inUV).rgb * color;
 
-    totalColor += inAmbient;
+    totalColor += ambient;
 
     totalColor += lambert_diffuse(
         vec3(0.7, 0.7, 1.0), 
