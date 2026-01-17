@@ -23,8 +23,6 @@ constexpr uint32_t OBJECT_COUNT = 2000;
 constexpr float SPAWN_BOX_SIZE = 150.0f;
 constexpr glm::vec3 BOID_COLOR = {1.0f, 0.0f, 0.1f};
 
-// TODO: just use tinyobj loader please GODS PLEASE
-
 #pragma region // helpers
 
 static std::shared_ptr<Mesh> load_mesh(const std::string& path, const GraphicsContext& ctx) {
