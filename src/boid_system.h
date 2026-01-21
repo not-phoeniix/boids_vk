@@ -1,6 +1,6 @@
 #pragma once
 
-#include "glm_settings.h"
+#include "render_thing/glm_settings.h"
 #include <glm/glm.hpp>
 #include <vector>
 #include <stdint.h>
