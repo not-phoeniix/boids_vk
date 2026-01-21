@@ -13,20 +13,20 @@
 
 class Scene {
    private:
-    std::shared_ptr<Mesh> mesh;
-    std::shared_ptr<ImageWrapper> image;
-    std::unique_ptr<SamplerWrapper> sampler;
+    std::shared_ptr<RenderThing::Mesh> mesh;
+    std::shared_ptr<RenderThing::ImageWrapper> image;
+    std::unique_ptr<RenderThing::SamplerWrapper> sampler;
     std::unique_ptr<Camera> camera;
     BoidSystem boid_system;
-    std::vector<std::shared_ptr<UniformWrapper>> uniforms;
+    std::vector<std::shared_ptr<RenderThing::UniformWrapper>> uniforms;
     float time = 0.0f;
 
    public:
     Scene() = default;
 
-    void Init(GraphicsManager& graphics);
+    void Init(RenderThing::GraphicsManager& graphics);
     void Deinit();
 
     void Update(float dt);
-    void Draw(GraphicsManager& graphics);
+    void Draw(RenderThing::GraphicsManager& graphics);
 };

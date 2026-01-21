@@ -19,7 +19,7 @@ static void run() {
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "!! boids_vk !!", nullptr, nullptr);
 
-    GraphicsManager graphics(window);
+    RenderThing::GraphicsManager graphics(window);
     Scene scene;
 
     float dt_sum = 0;

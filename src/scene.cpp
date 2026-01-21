@@ -14,6 +14,8 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
 
+using namespace RenderThing;
+
 constexpr float PERFORMANCE_PRINT_INTERVAL = 1.0f;
 
 constexpr float MOVE_SPEED = 10.0f;
