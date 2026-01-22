@@ -71,7 +71,7 @@ clean:
 	rm -rf $(BIN_DIR)/*
 	@echo "project cleaned!"
 
-run: $(RES_OUT) $(SHADER_BIN) $(BIN)
+run: $(RES_OUT) $(LIB_OUT) $(SHADER_BIN) $(BIN)
 	@echo "running $(BIN)..."
 	@cd $(BIN_DIR) && export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:./$(LIB_DIR) && ./$(BIN_NAME)
 

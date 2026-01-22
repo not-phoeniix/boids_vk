@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan.h>
 #include "vertex.h"
-#include "buffer_wrapper.h"
+#include "buffer.h"
 #include <memory>
 #include "graphics_context.h"
 
@@ -18,19 +18,19 @@ namespace RenderThing {
        private:
         VkDevice device;
 
-        std::unique_ptr<BufferWrapper> vertex_buffer;
-        std::unique_ptr<BufferWrapper> index_buffer;
+        std::unique_ptr<Buffer> vertex_buffer;
+        std::unique_ptr<Buffer> index_buffer;
 
         uint32_t num_vertices;
         uint32_t num_indices;
 
        public:
         Mesh(const MeshCreateInfo& create_info, const GraphicsContext& ctx);
-        ~Mesh() = default;
+        ~Mesh();
 
-        VkBuffer get_vertex_buffer() const { return vertex_buffer->get_buffer(); }
-        VkBuffer get_index_buffer() const { return index_buffer->get_buffer(); }
-        uint32_t get_num_vertices() const { return num_vertices; }
-        uint32_t get_num_indices() const { return num_indices; }
+        VkBuffer get_vertex_buffer() const;
+        VkBuffer get_index_buffer() const;
+        uint32_t get_num_vertices() const;
+        uint32_t get_num_indices() const;
     };
 }

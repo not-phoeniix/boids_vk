@@ -79,7 +79,7 @@ static std::shared_ptr<Mesh> load_mesh(const std::string& path, const GraphicsCo
     return std::make_shared<Mesh>(mesh_info, ctx);
 }
 
-static std::shared_ptr<ImageWrapper> load_image(const std::string& path, const GraphicsContext& ctx) {
+static std::shared_ptr<Image> load_image(const std::string& path, const GraphicsContext& ctx) {
     int width;
     int height;
     int channels;
@@ -95,7 +95,7 @@ static std::shared_ptr<ImageWrapper> load_image(const std::string& path, const G
         throw std::runtime_error("Failed to load image!");
     }
 
-    ImageWrapperCreateInfo create_info = {
+    ImageCreateInfo create_info = {
         .width = static_cast<uint32_t>(width),
         .height = static_cast<uint32_t>(height),
         .format = VK_FORMAT_R8G8B8A8_SRGB,
@@ -104,7 +104,7 @@ static std::shared_ptr<ImageWrapper> load_image(const std::string& path, const G
         .memory_properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         .view_aspect_flags = VK_IMAGE_ASPECT_COLOR_BIT
     };
-    auto image = std::make_shared<ImageWrapper>(create_info, ctx);
+    auto image = std::make_shared<Image>(create_info, ctx);
     image->CopyData(pixels, ctx);
 
     stbi_image_free(pixels);
@@ -141,14 +141,14 @@ void Scene::Init(GraphicsManager& graphics) {
 
     image = load_image("res/dogwho_is_also___rendered.png", ctx);
 
-    SamplerWrapperCreateInfo sampler_create_info = {
+    SamplerCreateInfo sampler_create_info = {
         .min_filter = VK_FILTER_LINEAR,
         .mag_filter = VK_FILTER_LINEAR,
         .address_u = VK_SAMPLER_ADDRESS_MODE_REPEAT,
         .address_v = VK_SAMPLER_ADDRESS_MODE_REPEAT,
         .address_w = VK_SAMPLER_ADDRESS_MODE_REPEAT,
     };
-    sampler = std::make_unique<SamplerWrapper>(sampler_create_info, ctx);
+    sampler = std::make_unique<Sampler>(sampler_create_info, ctx);
 
     boid_system_populate(&boid_system, OBJECT_COUNT, SPAWN_BOX_SIZE);
     uniforms.resize(OBJECT_COUNT);
