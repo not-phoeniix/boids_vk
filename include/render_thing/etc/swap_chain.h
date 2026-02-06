@@ -1,10 +1,9 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
-#include "graphics_context.h"
 #include <vector>
-#include "image.h"
 #include <memory>
+#include "../base/base.h"
 
 namespace RenderThing {
     struct SwapChainCreateInfo {

@@ -1,14 +1,10 @@
 #pragma once
 
-#include "render_thing/graphics_manager.h"
-#include "render_thing/mesh.h"
+#include "render_thing/render_thing.h"
 #include <memory>
 #include "camera.h"
 #include <vector>
-#include "render_thing/glm_settings.h"
 #include <glm/glm.hpp>
-#include "render_thing/image.h"
-#include "render_thing/sampler.h"
 #include "boid_system.h"
 
 class Scene {

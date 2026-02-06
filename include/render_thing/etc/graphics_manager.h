@@ -3,14 +3,12 @@
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <GLFW/glfw3.h>
-#include "buffer.h"
 #include <memory>
-#include "uniform_buffer_object.h"
+#include "../uniform_buffer_object.h"
+#include "../camera_push_constants.h"
+#include "../pixel_push_constants.h"
+#include "../base/base.h"
 #include "uniform.h"
-#include "graphics_context.h"
-#include "image.h"
-#include "camera_push_constants.h"
-#include "pixel_push_constants.h"
 #include "swap_chain.h"
 
 namespace RenderThing {
@@ -29,8 +27,7 @@ namespace RenderThing {
         bool framebuffer_resized;
 
         VkRenderPass render_pass;
-        VkPipelineLayout pipeline_layout;
-        VkPipeline graphics_pipeline;
+        std::unique_ptr<GraphicsPipeline> pipeline;
 
         VkDescriptorSetLayout descriptor_set_layout;
         VkDescriptorPool descriptor_pool;

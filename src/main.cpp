@@ -1,5 +1,5 @@
 #include <iostream>
-#include "render_thing/graphics_manager.h"
+#include "render_thing/render_thing.h"
 #include <stdexcept>
 #include <cstdlib>
 #include <GLFW/glfw3.h>
