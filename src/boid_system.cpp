@@ -2,8 +2,12 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/norm.hpp>
+#include <iostream>
+#include <mutex>
+#include <thread>
 
 constexpr uint32_t CHUNKS_PER_AXIS = 10;
+constexpr uint32_t NUM_THREADS = 4;
 
 constexpr float ADJACENT_SEARCH_RADIUS = 10.0f;
 constexpr float SEPARATE_STRENGTH = 0.5f;
@@ -22,11 +26,13 @@ constexpr float FRICTION_COEFF = 2.0f;
 constexpr float MAX_SPEED_MIN = 10.0f;
 constexpr float MAX_SPEED_MAX = 50.0f;
 
+static std::mutex mtx;
+
 static float randf_range(float min, float max) {
     return min + ((max - min) * ((rand() / (float)RAND_MAX)));
 }
 
-#pragma region // wandering behaviors
+#pragma region // behaviors
 
 static glm::vec3 seek(const glm::vec3& target_pos, BoidSystem* system, uint32_t boid) {
     glm::vec3 dir = target_pos - system->boid_positions[boid];
@@ -160,81 +166,111 @@ void boid_system_destroy(BoidSystem* system) {
     system->bounds_size = 0.0f;
 }
 
+static void update_boid(uint32_t b, BoidSystem* system, float dt) {
+    std::unique_lock<std::mutex> lock(mtx, std::defer_lock);
+
+    glm::vec3 avg_position = {0.0f, 0.0f, 0.0f};
+    glm::vec3 avg_direction = {0.0f, 0.0f, 0.0f};
+    uint32_t num_adjacent = 0;
+
+    glm::vec3 total_steer = {0.0f, 0.0f, 0.0f};
+
+    lock.lock();
+
+    // always erase prev chunk and re-place for cache efficiency
+    system->chunks[system->boid_contained_chunk_index[b]].erase(b);
+    uint32_t chunk_index = get_chunk_index(system, b);
+    system->boid_contained_chunk_index[b] = chunk_index;
+    system->chunks[chunk_index].insert(b);
+
+    for (const auto& b2 : system->chunks[chunk_index]) {
+        glm::vec3 diff = system->boid_positions[b] - system->boid_positions[b2];
+        float d_sqr = glm::length2(diff);
+
+        // ensure we're in range and also not at the same position
+        if (d_sqr > FLT_EPSILON && d_sqr <= ADJACENT_SEARCH_RADIUS * ADJACENT_SEARCH_RADIUS) {
+            // ~~~ separation, flee from neighbors in range ~~~
+            total_steer += flee(system->boid_positions[b2], system, b) * SEPARATE_STRENGTH;
+
+            // ~~~ accumulate average positions and directions ~~~
+
+            avg_position += system->boid_positions[b2];
+
+            glm::vec3 dir = system->boid_velocities[b2];
+            float len = glm::length(dir);
+            dir *= (len > FLT_EPSILON) ? (1.0f / len) : 1.0f;
+            avg_direction += dir;
+
+            num_adjacent++;
+        }
+    }
+
+    lock.unlock();
+
+    if (num_adjacent > 0) {
+        // ~~~ cohesion, seek avg ~~~
+        avg_position *= 1.0f / num_adjacent;
+        total_steer += seek(avg_position, system, b) * COHESION_STRENGTH;
+
+        // ~~~ alignment, move towards desired direction ~~~
+        avg_direction *= (1.0f / num_adjacent) * system->boid_max_speeds[b];
+        glm::vec3 desired_dir = avg_direction - system->boid_velocities[b];
+        total_steer += desired_dir * ALIGNMENT_STRENGTH;
+    }
+
+    // ~~~ wander! ~~~
+    total_steer += wander(system, b) * WANDER_STRENGTH;
+
+    // ~~~ seek center ~~~
+    //   so we don't run away forever (only when we're past the threshold)
+    float d_sqr = glm::length2(system->boid_positions[b]);
+    total_steer += seek(glm::vec3(0.0f), system, b) *
+                   static_cast<float>(d_sqr >= LIMIT_DISTANCE * LIMIT_DISTANCE) *
+                   LIMIT_STRENGTH;
+
+    // ~~~ friction !! ~~~
+
+    glm::vec3 dir = system->boid_velocities[b];
+    float vel_len = glm::length(dir);
+
+    // a hopefully more cache-friendly safe normalization method?
+    dir *= (vel_len > FLT_EPSILON) ? (1.0f / vel_len) : 1.0f;
+
+    total_steer += dir * (FRICTION_COEFF * -1.0f);
+
+    // ~~~ cap velocity ~~~
+    if (vel_len > system->boid_max_speeds[b]) {
+        system->boid_velocities[b] = dir * system->boid_max_speeds[b];
+    }
+
+    // ~~~ update positions using euler method! ~~~
+
+    system->boid_velocities[b] += total_steer * dt;
+    system->boid_positions[b] += system->boid_velocities[b] * dt;
+}
+
+static void thread_job(uint32_t b_start, uint32_t b_count, BoidSystem* system, float dt) {
+    for (uint32_t b = b_start; b < b_start + b_count; b++) {
+        update_boid(b, system, dt);
+    }
+}
+
 void boid_system_update(BoidSystem* system, float dt) {
-    for (uint32_t b = 0; b < system->boid_count; b++) {
-        glm::vec3 avg_position = {0.0f, 0.0f, 0.0f};
-        glm::vec3 avg_direction = {0.0f, 0.0f, 0.0f};
-        uint32_t num_adjacent = 0;
+    uint32_t b_start = 0;
+    uint32_t remaining = system->boid_count;
+    std::vector<std::thread> threads;
 
-        glm::vec3 total_steer = {0.0f, 0.0f, 0.0f};
+    for (uint32_t i = 0; i < NUM_THREADS; i++) {
+        uint32_t count = system->boid_count / NUM_THREADS;
+        if (count > remaining) count = remaining;
 
-        // always erase prev chunk and re-place for cache efficiency
-        system->chunks[system->boid_contained_chunk_index[b]].erase(b);
-        uint32_t chunk_index = get_chunk_index(system, b);
-        system->boid_contained_chunk_index[b] = chunk_index;
-        system->chunks[chunk_index].insert(b);
+        threads.emplace_back(thread_job, b_start, count, system, dt);
 
-        for (const auto& b2 : system->chunks[chunk_index]) {
-            glm::vec3 diff = system->boid_positions[b] - system->boid_positions[b2];
-            float d_sqr = glm::length2(diff);
+        b_start += count;
+        remaining -= count;
+    }
 
-            // ensure we're in range and also not at the same position
-            if (d_sqr > FLT_EPSILON && d_sqr <= ADJACENT_SEARCH_RADIUS * ADJACENT_SEARCH_RADIUS) {
-                // ~~~ separation, flee from neighbors in range ~~~
-                total_steer += flee(system->boid_positions[b2], system, b) * SEPARATE_STRENGTH;
-
-                // ~~~ accumulate average positions and directions ~~~
-
-                avg_position += system->boid_positions[b2];
-
-                glm::vec3 dir = system->boid_velocities[b2];
-                float len = glm::length(dir);
-                dir *= (len > FLT_EPSILON) ? (1.0f / len) : 1.0f;
-                avg_direction += dir;
-
-                num_adjacent++;
-            }
-        }
-
-        if (num_adjacent > 0) {
-            // ~~~ cohesion, seek avg ~~~
-            avg_position *= 1.0f / num_adjacent;
-            total_steer += seek(avg_position, system, b) * COHESION_STRENGTH;
-
-            // ~~~ alignment, move towards desired direction ~~~
-            avg_direction *= (1.0f / num_adjacent) * system->boid_max_speeds[b];
-            glm::vec3 desired_dir = avg_direction - system->boid_velocities[b];
-            total_steer += desired_dir * ALIGNMENT_STRENGTH;
-        }
-
-        // ~~~ wander! ~~~
-        total_steer += wander(system, b) * WANDER_STRENGTH;
-
-        // ~~~ seek center ~~~
-        //   so we don't run away forever (only when we're past the threshold)
-        float d_sqr = glm::length2(system->boid_positions[b]);
-        total_steer += seek(glm::vec3(0.0f), system, b) *
-                       static_cast<float>(d_sqr >= LIMIT_DISTANCE * LIMIT_DISTANCE) *
-                       LIMIT_STRENGTH;
-
-        // ~~~ friction !! ~~~
-
-        glm::vec3 dir = system->boid_velocities[b];
-        float vel_len = glm::length(dir);
-
-        // a hopefully more cache-friendly safe normalization method?
-        dir *= (vel_len > FLT_EPSILON) ? (1.0f / vel_len) : 1.0f;
-
-        total_steer += dir * (FRICTION_COEFF * -1.0f);
-
-        // ~~~ cap velocity ~~~
-        if (vel_len > system->boid_max_speeds[b]) {
-            system->boid_velocities[b] = dir * system->boid_max_speeds[b];
-        }
-
-        // ~~~ update positions using euler method! ~~~
-
-        system->boid_velocities[b] += total_steer * dt;
-        system->boid_positions[b] += system->boid_velocities[b] * dt;
+    for (auto& t : threads) {
+        t.join();
     }
 }
