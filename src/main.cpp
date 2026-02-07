@@ -6,6 +6,7 @@
 #include "input.h"
 #include "scene.h"
 #include <cstdlib>
+#include "thread_pool.h"
 
 constexpr uint32_t WIDTH = 800;
 constexpr uint32_t HEIGHT = 600;
@@ -73,9 +74,41 @@ static void run() {
     glfwTerminate();
 }
 
+static void print(uint32_t thred_index) {
+}
+
+static void test() {
+    ThreadPool pool(4);
+
+    for (uint32_t i = 0; i < 100; i++) {
+        std::cout << "adding job " << i << "\n";
+        pool.QueueJob([i](uint32_t index) {
+            std::cout << "thread: " << index << " ... i: " << i << "\n";
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        });
+    }
+
+    std::cout << "WAIT BEGIN\n";
+    pool.Wait();
+    std::cout << "pool done waiting :]\n";
+
+    for (uint32_t i = 100; i < 200; i++) {
+        std::cout << "adding job " << i << "\n";
+        pool.QueueJob([i](uint32_t index) {
+            std::cout << "thread: " << index << " ... i: " << i << "\n";
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        });
+    }
+
+    std::cout << "WAIT BEGIN\n";
+    pool.Wait();
+    std::cout << "pool done waiting :]\n";
+}
+
 int main() {
     try {
-        run();
+        // run();
+        test();
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
         return EXIT_FAILURE;
