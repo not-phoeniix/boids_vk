@@ -7,7 +7,7 @@
 #include <thread>
 
 constexpr uint32_t CHUNKS_PER_AXIS = 10;
-constexpr uint32_t NUM_THREADS = 4;
+constexpr uint32_t NUM_THREADS = 16;
 
 constexpr float ADJACENT_SEARCH_RADIUS = 10.0f;
 constexpr float SEPARATE_STRENGTH = 0.5f;
@@ -146,6 +146,8 @@ void boid_system_populate(BoidSystem* system, uint32_t count, float bounds_size)
     for (uint32_t i = 0; i < count; i++) {
         init_boid(system, i);
     }
+
+    system->thread_pool = new ThreadPool(NUM_THREADS);
 }
 
 void boid_system_destroy(BoidSystem* system) {
@@ -155,6 +157,7 @@ void boid_system_destroy(BoidSystem* system) {
     delete[] system->boid_contained_chunk_index;
     delete[] system->boid_max_speeds;
     delete[] system->chunks;
+    delete system->thread_pool;
 
     system->boid_positions = nullptr;
     system->boid_velocities = nullptr;
@@ -164,6 +167,7 @@ void boid_system_destroy(BoidSystem* system) {
     system->boid_count = 0;
     system->chunks = nullptr;
     system->bounds_size = 0.0f;
+    system->thread_pool = nullptr;
 }
 
 static void update_boid(uint32_t b, BoidSystem* system, float dt) {
@@ -249,28 +253,25 @@ static void update_boid(uint32_t b, BoidSystem* system, float dt) {
     system->boid_positions[b] += system->boid_velocities[b] * dt;
 }
 
-static void thread_job(uint32_t b_start, uint32_t b_count, BoidSystem* system, float dt) {
-    for (uint32_t b = b_start; b < b_start + b_count; b++) {
-        update_boid(b, system, dt);
-    }
-}
-
 void boid_system_update(BoidSystem* system, float dt) {
     uint32_t b_start = 0;
     uint32_t remaining = system->boid_count;
-    std::vector<std::thread> threads;
 
     for (uint32_t i = 0; i < NUM_THREADS; i++) {
         uint32_t count = system->boid_count / NUM_THREADS;
         if (count > remaining) count = remaining;
 
-        threads.emplace_back(thread_job, b_start, count, system, dt);
+        system->thread_pool->QueueJob(
+            [b_start, count, system, dt](uint32_t thread_index) {
+                for (uint32_t b = b_start; b < b_start + count; b++) {
+                    update_boid(b, system, dt);
+                }
+            }
+        );
 
         b_start += count;
         remaining -= count;
     }
 
-    for (auto& t : threads) {
-        t.join();
-    }
+    system->thread_pool->Wait();
 }

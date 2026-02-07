@@ -21,7 +21,7 @@ constexpr float PERFORMANCE_PRINT_INTERVAL = 1.0f;
 constexpr float MOVE_SPEED = 10.0f;
 constexpr float SPRINT_SCALAR = 4.0f;
 constexpr float LOOK_SPEED = 0.007f;
-constexpr uint32_t OBJECT_COUNT = 2000;
+constexpr uint32_t OBJECT_COUNT = 5000;
 constexpr float SPAWN_BOX_SIZE = 150.0f;
 constexpr glm::vec3 BOID_COLOR = {1.0f, 0.0f, 0.1f};
 

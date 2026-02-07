@@ -5,6 +5,7 @@
 #include <vector>
 #include <stdint.h>
 #include <unordered_set>
+#include "thread_pool.h"
 
 using BoidChunk = std::unordered_set<uint32_t>;
 
@@ -18,6 +19,7 @@ struct BoidSystem {
 
     BoidChunk* chunks;
     float bounds_size;
+    ThreadPool* thread_pool;
 };
 
 void boid_system_populate(BoidSystem* system, uint32_t count, float bounds_size);
