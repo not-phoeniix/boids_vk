@@ -7,6 +7,8 @@ ThreadPool::ThreadPool(uint32_t thread_count)
     Start();
 }
 
+ThreadPool::ThreadPool() : ThreadPool(std::thread::hardware_concurrency()) { }
+
 ThreadPool::~ThreadPool() {
     End();
 }

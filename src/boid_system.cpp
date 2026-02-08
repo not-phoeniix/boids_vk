@@ -7,7 +7,6 @@
 #include <thread>
 
 constexpr uint32_t CHUNKS_PER_AXIS = 6;
-constexpr uint32_t NUM_THREADS = 16;
 
 constexpr float ADJACENT_SEARCH_RADIUS = 20.0f;
 constexpr float SEPARATE_STRENGTH = 0.4f;
@@ -146,7 +145,7 @@ void boid_system_populate(BoidSystem* system, uint32_t count, float bounds_size)
         init_boid(system, i);
     }
 
-    system->thread_pool = new ThreadPool(NUM_THREADS);
+    system->thread_pool = new ThreadPool();
 }
 
 void boid_system_destroy(BoidSystem* system) {
@@ -259,8 +258,8 @@ void boid_system_update(BoidSystem* system, float dt) {
         uint32_t b_start = 0;
         uint32_t remaining = system->boid_count;
 
-        for (uint32_t i = 0; i < NUM_THREADS; i++) {
-            uint32_t count = system->boid_count / NUM_THREADS;
+        for (uint32_t i = 0; i < system->thread_pool->get_thread_count(); i++) {
+            uint32_t count = system->boid_count / system->thread_pool->get_thread_count();
             if (count > remaining) count = remaining;
 
             system->thread_pool->QueueJob(
@@ -283,8 +282,8 @@ void boid_system_update(BoidSystem* system, float dt) {
         uint32_t b_start = 0;
         uint32_t remaining = system->boid_count;
 
-        for (uint32_t i = 0; i < NUM_THREADS; i++) {
-            uint32_t count = system->boid_count / NUM_THREADS;
+        for (uint32_t i = 0; i < system->thread_pool->get_thread_count(); i++) {
+            uint32_t count = system->boid_count / system->thread_pool->get_thread_count();
             if (count > remaining) count = remaining;
 
             // std::cout << "batch indices: [" << b_start << "-" << (b_start + count) << "]\n";

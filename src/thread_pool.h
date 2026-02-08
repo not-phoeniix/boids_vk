@@ -24,6 +24,7 @@ class ThreadPool {
 
    public:
     ThreadPool(uint32_t thread_count);
+    ThreadPool();
     ~ThreadPool();
 
     void Start();
