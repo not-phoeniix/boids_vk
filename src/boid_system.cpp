@@ -32,27 +32,40 @@ static float randf_range(float min, float max) {
 
 #pragma region // behaviors
 
+// a hopefully more cache-friendly safe normalization method?
+static glm::vec3 safe_norm(const glm::vec3& vec) {
+    glm::vec3 ret = vec;
+    float len = glm::length(vec);
+    bool safe = len > FLT_EPSILON;
+
+    // ensures we're never dividing by zero
+    ret *= 1.0f / (len + static_cast<float>(!safe));
+
+    return ret;
+}
+
+// a hopefully more cache-friendly safe normalization method?
+static glm::vec3 safe_norm_len(const glm::vec3& vec, float* out_initial_len) {
+    glm::vec3 ret = vec;
+    float len = glm::length(vec);
+    bool safe = len > FLT_EPSILON;
+
+    // ensures we're never dividing by zero
+    ret *= 1.0f / (len + static_cast<float>(!safe));
+
+    *out_initial_len = len;
+    return ret;
+}
+
 static glm::vec3 seek(const glm::vec3& target_pos, BoidSystem* system, uint32_t boid) {
-    glm::vec3 dir = target_pos - system->boid_positions[boid];
-
-    // a hopefully more cache-friendly safe normalization method?
-    float len = glm::length(dir);
-    dir *= (len > FLT_EPSILON) ? (1.0f / len) : 1.0f;
-
+    glm::vec3 dir = safe_norm(target_pos - system->boid_positions[boid]);
     glm::vec3 desired_velocity = dir * system->boid_max_speeds[boid];
-
     return desired_velocity;
 }
 
 static glm::vec3 flee(const glm::vec3& target_pos, BoidSystem* system, uint32_t boid) {
-    glm::vec3 dir = system->boid_positions[boid] - target_pos;
-
-    // a hopefully more cache-friendly safe normalization method?
-    float len = glm::length(dir);
-    dir *= (len > FLT_EPSILON) ? (1.0f / len) : 1.0f;
-
+    glm::vec3 dir = safe_norm(system->boid_positions[boid] - target_pos);
     glm::vec3 desired_velocity = dir * system->boid_max_speeds[boid];
-
     return desired_velocity;
 }
 
@@ -210,15 +223,20 @@ static void update_boid(uint32_t b, BoidSystem* system, float dt) {
         }
     }
 
-    if (num_adjacent > 0) {
+    {
+        // using funny boolean multiplication here to avoid conditionals for caching
+
+        // ensure we never divide by zero
+        float denominator = num_adjacent + (1.0f * static_cast<float>(num_adjacent == 0));
+
         // ~~~ cohesion, seek avg ~~~
-        avg_position *= 1.0f / num_adjacent;
-        total_steer += seek(avg_position, system, b) * COHESION_STRENGTH;
+        avg_position *= 1.0f / denominator;
+        total_steer += (seek(avg_position, system, b) * COHESION_STRENGTH) * static_cast<float>(num_adjacent != 0);
 
         // ~~~ alignment, move towards desired direction ~~~
-        avg_direction *= (1.0f / num_adjacent) * system->boid_max_speeds[b];
+        avg_direction *= (1.0f / denominator) * system->boid_max_speeds[b];
         glm::vec3 desired_dir = avg_direction - system->boid_velocities[b];
-        total_steer += desired_dir * ALIGNMENT_STRENGTH;
+        total_steer += (desired_dir * ALIGNMENT_STRENGTH) * static_cast<float>(num_adjacent != 0);
     }
 
     // ~~~ wander! ~~~
@@ -233,17 +251,20 @@ static void update_boid(uint32_t b, BoidSystem* system, float dt) {
 
     // ~~~ friction !! ~~~
 
-    glm::vec3 dir = system->boid_velocities[b];
-    float vel_len = glm::length(dir);
-
-    // a hopefully more cache-friendly safe normalization method?
-    dir *= (vel_len > FLT_EPSILON) ? (1.0f / vel_len) : 1.0f;
+    float vel_len = 0.0f;
+    glm::vec3 dir = safe_norm_len(system->boid_velocities[b], &vel_len);
 
     total_steer += dir * (FRICTION_COEFF * -1.0f);
 
     // ~~~ cap velocity ~~~
-    if (vel_len > system->boid_max_speeds[b]) {
-        system->boid_velocities[b] = dir * system->boid_max_speeds[b];
+
+    {
+        bool too_fast = vel_len > system->boid_max_speeds[b];
+        float denominator = vel_len + (1.0f * static_cast<float>(vel_len <= FLT_EPSILON));
+        float scalar = (1.0f / denominator) * system->boid_max_speeds[b];
+
+        system->boid_velocities[b] *= scalar * static_cast<float>(too_fast) +
+                                      (1.0f * static_cast<float>(!too_fast));
     }
 
     // ~~~ update positions using euler method! ~~~
@@ -285,8 +306,6 @@ void boid_system_update(BoidSystem* system, float dt) {
         for (uint32_t i = 0; i < system->thread_pool->get_thread_count(); i++) {
             uint32_t count = system->boid_count / system->thread_pool->get_thread_count();
             if (count > remaining) count = remaining;
-
-            // std::cout << "batch indices: [" << b_start << "-" << (b_start + count) << "]\n";
 
             system->thread_pool->QueueJob(
                 [b_start, count, system, dt](uint32_t thread_index) {
