@@ -6,19 +6,18 @@
 #include <mutex>
 #include <thread>
 
-constexpr uint32_t CHUNKS_PER_AXIS = 10;
+constexpr uint32_t CHUNKS_PER_AXIS = 6;
 constexpr uint32_t NUM_THREADS = 16;
 
-constexpr float ADJACENT_SEARCH_RADIUS = 10.0f;
-constexpr float SEPARATE_STRENGTH = 0.5f;
+constexpr float ADJACENT_SEARCH_RADIUS = 20.0f;
+constexpr float SEPARATE_STRENGTH = 0.4f;
 constexpr float COHESION_STRENGTH = 3.0f;
-constexpr float ALIGNMENT_STRENGTH = 2.0f;
+constexpr float ALIGNMENT_STRENGTH = 3.0f;
 
 constexpr float WANDER_STRENGTH = 1.0f;
 constexpr float WANDER_TIME = 0.4f;
 constexpr float WANDER_RADIUS = 50.0f;
 
-constexpr float LIMIT_DISTANCE = 100.0f;
 constexpr float LIMIT_STRENGTH = 4.0f;
 
 constexpr float FRICTION_COEFF = 2.0f;
@@ -170,24 +169,27 @@ void boid_system_destroy(BoidSystem* system) {
     system->thread_pool = nullptr;
 }
 
-static void update_boid(uint32_t b, BoidSystem* system, float dt) {
-    std::unique_lock<std::mutex> lock(mtx, std::defer_lock);
+static void update_boid_container(uint32_t b, BoidSystem* system) {
+    uint32_t current_index = system->boid_contained_chunk_index[b];
+    uint32_t desired_index = get_chunk_index(system, b);
 
+    {
+        std::lock_guard<std::mutex> lock(mtx);
+        system->chunks[current_index].erase(b);
+        system->chunks[desired_index].insert(b);
+    }
+
+    system->boid_contained_chunk_index[b] = desired_index;
+}
+
+static void update_boid(uint32_t b, BoidSystem* system, float dt) {
     glm::vec3 avg_position = {0.0f, 0.0f, 0.0f};
     glm::vec3 avg_direction = {0.0f, 0.0f, 0.0f};
     uint32_t num_adjacent = 0;
 
     glm::vec3 total_steer = {0.0f, 0.0f, 0.0f};
 
-    lock.lock();
-
-    // always erase prev chunk and re-place for cache efficiency
-    system->chunks[system->boid_contained_chunk_index[b]].erase(b);
-    uint32_t chunk_index = get_chunk_index(system, b);
-    system->boid_contained_chunk_index[b] = chunk_index;
-    system->chunks[chunk_index].insert(b);
-
-    for (const auto& b2 : system->chunks[chunk_index]) {
+    for (const auto& b2 : system->chunks[system->boid_contained_chunk_index[b]]) {
         glm::vec3 diff = system->boid_positions[b] - system->boid_positions[b2];
         float d_sqr = glm::length2(diff);
 
@@ -209,8 +211,6 @@ static void update_boid(uint32_t b, BoidSystem* system, float dt) {
         }
     }
 
-    lock.unlock();
-
     if (num_adjacent > 0) {
         // ~~~ cohesion, seek avg ~~~
         avg_position *= 1.0f / num_adjacent;
@@ -229,7 +229,7 @@ static void update_boid(uint32_t b, BoidSystem* system, float dt) {
     //   so we don't run away forever (only when we're past the threshold)
     float d_sqr = glm::length2(system->boid_positions[b]);
     total_steer += seek(glm::vec3(0.0f), system, b) *
-                   static_cast<float>(d_sqr >= LIMIT_DISTANCE * LIMIT_DISTANCE) *
+                   static_cast<float>(d_sqr >= (system->bounds_size * system->bounds_size)) *
                    LIMIT_STRENGTH;
 
     // ~~~ friction !! ~~~
@@ -254,24 +254,53 @@ static void update_boid(uint32_t b, BoidSystem* system, float dt) {
 }
 
 void boid_system_update(BoidSystem* system, float dt) {
-    uint32_t b_start = 0;
-    uint32_t remaining = system->boid_count;
+    // UPDATE CONTAINERS IN BATCHES
+    {
+        uint32_t b_start = 0;
+        uint32_t remaining = system->boid_count;
 
-    for (uint32_t i = 0; i < NUM_THREADS; i++) {
-        uint32_t count = system->boid_count / NUM_THREADS;
-        if (count > remaining) count = remaining;
+        for (uint32_t i = 0; i < NUM_THREADS; i++) {
+            uint32_t count = system->boid_count / NUM_THREADS;
+            if (count > remaining) count = remaining;
 
-        system->thread_pool->QueueJob(
-            [b_start, count, system, dt](uint32_t thread_index) {
-                for (uint32_t b = b_start; b < b_start + count; b++) {
-                    update_boid(b, system, dt);
+            system->thread_pool->QueueJob(
+                [b_start, count, system](uint32_t thread_index) {
+                    for (uint32_t b = b_start; b < b_start + count; b++) {
+                        update_boid_container(b, system);
+                    }
                 }
-            }
-        );
+            );
 
-        b_start += count;
-        remaining -= count;
+            b_start += count;
+            remaining -= count;
+        }
+
+        system->thread_pool->Wait();
     }
 
-    system->thread_pool->Wait();
+    // UPDATE BOID POSITIONS IN BATCHES
+    {
+        uint32_t b_start = 0;
+        uint32_t remaining = system->boid_count;
+
+        for (uint32_t i = 0; i < NUM_THREADS; i++) {
+            uint32_t count = system->boid_count / NUM_THREADS;
+            if (count > remaining) count = remaining;
+
+            // std::cout << "batch indices: [" << b_start << "-" << (b_start + count) << "]\n";
+
+            system->thread_pool->QueueJob(
+                [b_start, count, system, dt](uint32_t thread_index) {
+                    for (uint32_t b = b_start; b < b_start + count; b++) {
+                        update_boid(b, system, dt);
+                    }
+                }
+            );
+
+            b_start += count;
+            remaining -= count;
+        }
+
+        system->thread_pool->Wait();
+    }
 }

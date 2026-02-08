@@ -31,4 +31,6 @@ class ThreadPool {
 
     void QueueJob(std::function<void(uint32_t)> func);
     void Wait();
+
+    uint32_t get_thread_count() const { return thread_count; }
 };

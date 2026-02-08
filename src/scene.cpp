@@ -22,7 +22,7 @@ constexpr float MOVE_SPEED = 10.0f;
 constexpr float SPRINT_SCALAR = 4.0f;
 constexpr float LOOK_SPEED = 0.007f;
 constexpr uint32_t OBJECT_COUNT = 5000;
-constexpr float SPAWN_BOX_SIZE = 150.0f;
+constexpr float SPAWN_BOX_SIZE = 200.0f;
 constexpr glm::vec3 BOID_COLOR = {1.0f, 0.0f, 0.1f};
 
 #pragma region // helpers
@@ -133,7 +133,7 @@ void Scene::Init(GraphicsManager& graphics) {
     camera = std::make_unique<Camera>(
         glm::vec3(0.0f, 50.0, -200.0f),
         graphics.get_aspect(),
-        glm::radians(60.0f),
+        glm::radians(85.0f),
         0.01f,
         1000.0f
     );

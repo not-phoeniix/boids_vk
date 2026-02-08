@@ -39,7 +39,7 @@ void ThreadPool::Work(uint32_t thread_index) {
         func(thread_index);
 
         {
-            std::unique_lock<std::mutex> lock(mtx);
+            std::lock_guard<std::mutex> lock(mtx);
             worker_threads_idle[thread_index] = true;
         }
     }
@@ -65,7 +65,7 @@ void ThreadPool::Start() {
 
 void ThreadPool::End() {
     {
-        std::unique_lock<std::mutex> lock(mtx);
+        std::lock_guard<std::mutex> lock(mtx);
         running = false;
     }
 
@@ -81,7 +81,7 @@ void ThreadPool::End() {
 
 void ThreadPool::QueueJob(std::function<void(uint32_t)> func) {
     {
-        std::unique_lock<std::mutex> lock(mtx);
+        std::lock_guard<std::mutex> lock(mtx);
         job_queue.push(func);
     }
     queue_cd.notify_one();
