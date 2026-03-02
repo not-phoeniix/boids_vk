@@ -2,8 +2,8 @@
 CXX := g++
 PRE_FLAGS := -m64 -g -Wall -std=c++20
 POST_FLAGS := -lglfw -lvulkan -ldl -lrender_thing
-SHADER_CXX := glslc
-SHADER_FLAGS :=
+SHADER_CXX := slangc
+SHADER_FLAGS := -target spirv -profile spirv_1_4 -fvk-use-entrypoint-name
 
 # directories
 SRC_DIR := src
@@ -22,7 +22,7 @@ SRC := $(shell find $(SRC_DIR)/ -type f -iname "*.cpp")
 OBJ := $(subst $(SRC_DIR),$(OBJ_DIR),$(foreach file,$(basename $(SRC)),$(file).o))
 BIN_NAME := build
 BIN := $(BIN_DIR)/$(BIN_NAME)
-SHADER_SRC := $(shell find $(SHADER_SRC_DIR)/ -type f \( -iname \*.glsl -o -iname \*.frag -o -iname \*.vert -o -iname \*.tesc -o -iname \*.tese -o -iname \*.geom -o -iname \*.comp \))
+SHADER_SRC := $(shell find $(SHADER_SRC_DIR)/ -type f -iname "*.slang")
 SHADER_BIN := $(subst $(SHADER_SRC_DIR),$(SHADER_BIN_DIR),$(foreach file,$(basename $(SHADER_SRC)),$(file).spv))
 RES_SRC := $(shell find $(RES_DIR)/ -type f)
 LIB_SRC	:= $(shell find $(LIB_DIR)/ -type f)
@@ -44,7 +44,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $$(dir $$@)
 	@echo "compiling $<..."
 	@$(CXX) -c $< $(PRE_FLAGS) -I$(INC_DIR) -o $@
 
-$(SHADER_BIN_DIR)/%.spv: $(SHADER_SRC_DIR)/%.* | $$(dir $$@)
+$(SHADER_BIN_DIR)/%.spv: $(SHADER_SRC_DIR)/%.slang | $$(dir $$@)
 	@echo "compiling $<..."
 	@$(SHADER_CXX) $< $(SHADER_FLAGS) -o $@
 

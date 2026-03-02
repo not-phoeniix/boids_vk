@@ -1,0 +1,17 @@
+#ifndef LIGHTING_H
+#define LIGHTING_H
+
+struct Light {
+    float3 color;
+    float intensity;
+    float3 direction;
+}
+
+namespace Lighting {
+    float3 lambert_diffuse(Light light, float3 surface_color, float3 surface_normal) {
+        float scalar = max(dot(-light.direction, surface_normal), 0.0);
+        return surface_color * scalar * light.intensity * light.color;
+    }
+}
+
+#endif
