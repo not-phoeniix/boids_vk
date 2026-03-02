@@ -9,8 +9,8 @@
 
 class Scene {
    private:
-    std::shared_ptr<RenderThing::Mesh> mesh;
-    std::shared_ptr<RenderThing::Image> image;
+    std::shared_ptr<rt::Mesh> mesh;
+    std::shared_ptr<rt::Image> image;
     std::unique_ptr<Camera> camera;
     BoidSystem boid_system;
     float time = 0.0f;

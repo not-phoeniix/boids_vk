@@ -41,10 +41,10 @@ static VkShaderModule load_shader(const std::string& path, VkDevice device) {
 }
 
 namespace Graphics {
-    static RenderThing::DestructionQueue destroy_queue;
+    static rt::DestructionQueue destroy_queue;
 
     static void create_api_cluster(GLFWwindow* window) {
-        RenderThing::InstanceCreateInfo instance = {
+        rt::InstanceCreateInfo instance = {
             .app_name = "boids_vk",
             .app_version = VK_MAKE_VERSION(1, 0, 0),
             .api_version = VK_API_VERSION_1_4,
@@ -52,12 +52,12 @@ namespace Graphics {
             .validation_layer_count = static_cast<uint32_t>(VALIDATION_LAYERS.size()),
         };
 
-        RenderThing::ApiClusterCreateInfo api_info = {
+        rt::ApiClusterCreateInfo api_info = {
             .instance = instance,
             .window = window
         };
 
-        ApiCluster = std::make_shared<RenderThing::ApiCluster>(api_info);
+        ApiCluster = std::make_shared<rt::ApiCluster>(api_info);
         destroy_queue.QueueDelete([] { ApiCluster.reset(); });
     }
 
@@ -76,12 +76,12 @@ namespace Graphics {
             },
         };
 
-        RenderThing::DescriptorSetLayoutCreateInfo layout_create_info = {
+        rt::DescriptorSetLayoutCreateInfo layout_create_info = {
             .bindings = bindings.data(),
             .binding_count = static_cast<uint32_t>(bindings.size()),
         };
 
-        RingBufferLayout = std::make_shared<RenderThing::DescriptorSetLayout>(
+        RingBufferLayout = std::make_shared<rt::DescriptorSetLayout>(
             layout_create_info,
             ApiCluster->get_api_context()
         );
@@ -89,7 +89,7 @@ namespace Graphics {
 
         // ~~~ create ring buffer itself ~~~
 
-        RenderThing::RingBufferCreateInfo ring_buffer_create_info = {
+        rt::RingBufferCreateInfo ring_buffer_create_info = {
             .element_size = sizeof(UniformBufferObject),
             .max_elements = 100000,
             .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -98,7 +98,7 @@ namespace Graphics {
             .layout = RingBufferLayout->get_layout()
         };
 
-        RingBuffer = std::make_shared<RenderThing::RingBuffer>(
+        RingBuffer = std::make_shared<rt::RingBuffer>(
             ring_buffer_create_info,
             ApiCluster->get_api_context()
         );
@@ -112,13 +112,13 @@ namespace Graphics {
             .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .descriptorCount = FRAMES_IN_FLIGHT
         };
-        RenderThing::DescriptorPoolCreateInfo pool_info = {
+        rt::DescriptorPoolCreateInfo pool_info = {
             .max_sets = FRAMES_IN_FLIGHT,
             .flags = 0,
             .pool_sizes = &pool_size,
             .pool_size_count = 1
         };
-        SamplerDescriptorPool = std::make_unique<RenderThing::DescriptorPool>(
+        SamplerDescriptorPool = std::make_unique<rt::DescriptorPool>(
             pool_info,
             ApiCluster->get_api_context()
         );
@@ -126,7 +126,7 @@ namespace Graphics {
 
         // ~~~ create sampler ~~~
 
-        RenderThing::SamplerCreateInfo sampler_create_info = {
+        rt::SamplerCreateInfo sampler_create_info = {
             .min_filter = VK_FILTER_LINEAR,
             .mag_filter = VK_FILTER_LINEAR,
             .address_u = VK_SAMPLER_ADDRESS_MODE_REPEAT,
@@ -134,7 +134,7 @@ namespace Graphics {
             .address_w = VK_SAMPLER_ADDRESS_MODE_REPEAT,
         };
 
-        Sampler = std::make_shared<RenderThing::Sampler>(
+        Sampler = std::make_shared<rt::Sampler>(
             sampler_create_info,
             ApiCluster->get_api_context()
         );
@@ -153,12 +153,12 @@ namespace Graphics {
             }
         };
 
-        RenderThing::DescriptorSetLayoutCreateInfo create_info = {
+        rt::DescriptorSetLayoutCreateInfo create_info = {
             .bindings = bindings.data(),
             .binding_count = static_cast<uint32_t>(bindings.size()),
         };
 
-        SamplerLayout = std::make_shared<RenderThing::DescriptorSetLayout>(
+        SamplerLayout = std::make_shared<rt::DescriptorSetLayout>(
             create_info,
             ApiCluster->get_api_context()
         );
@@ -353,7 +353,7 @@ namespace Graphics {
 
         // ~~~ create pipeline itself ~~~
 
-        RenderThing::GraphicsPipelineCreateInfo pipeline_create_info = {
+        rt::GraphicsPipelineCreateInfo pipeline_create_info = {
             .shader_stages = shader_stages.data(),
             .shader_stage_count = static_cast<uint32_t>(shader_stages.size()),
             .vertex_input = &vertex_input_create_info,
@@ -372,13 +372,13 @@ namespace Graphics {
 
         // === NON PIPELINE STUFF =========================
 
-        RenderThing::SwapChainCreateInfo swap_chain = {
+        rt::SwapChainCreateInfo swap_chain = {
             .frame_flight_count = FRAMES_IN_FLIGHT,
             .depth_format = VK_FORMAT_D32_SFLOAT,
             .extent = (VkExtent2D) {width, height},
         };
 
-        RenderThing::GraphicsManagerCreateInfo manager_info = {
+        rt::GraphicsManagerCreateInfo manager_info = {
             .clear_value = (VkClearValue) {{0.0f, 0.0f, 0.0f}},
             .window = window,
             .api_cluster = ApiCluster,
@@ -386,7 +386,7 @@ namespace Graphics {
             .graphics_pipeline = pipeline_create_info
         };
 
-        Manager = std::make_shared<RenderThing::GraphicsManager>(manager_info);
+        Manager = std::make_shared<rt::GraphicsManager>(manager_info);
         GraphicsPipeline = Manager->get_graphics_pipeline();
         SwapChain = Manager->get_swap_chain();
         destroy_queue.QueueDelete([] {
