@@ -1,17 +1,77 @@
 #ifndef LIGHTING_H
 #define LIGHTING_H
 
+#define LIGHTING_MAX_SPECULAR_EXP 512.0f
+
+enum LightType {
+    DIRECTIONAL,
+    POINT,
+    SPOT
+}
+
 struct Light {
-    float3 color;
-    float intensity;
+    LightType type;
     float3 direction;
+    float intensity;
+    float3 color;
+    float range;
+    float3 position;
+    float spot_angle_diff;
+    float3 padding;
+}
+
+struct SurfaceData {
+    float3 normal;
+    float3 color;
+    float3 position;
+    float roughness;
+    float metalness;
 }
 
 namespace Lighting {
-    float3 lambert_diffuse(Light light, float3 surface_color, float3 surface_normal) {
-        float scalar = max(dot(-light.direction, surface_normal), 0.0);
-        return surface_color * scalar * light.intensity * light.color;
+    // === other helpers ==================================
+
+    float attenuate(Light light, float3 frag_world_pos) {
+        float dist = distance(light.position, frag_world_pos);
+        float att = saturate(1.0f - (dist * dist / (light.range * light.range)));
+        return att * att;
     }
+
+    // === old lighting formulas ==========================
+
+    float3 lambert_diffuse(Light light, SurfaceData surface) {
+        float scalar = max(dot(-light.direction, surface.normal), 0.0);
+        return surface.color * scalar * light.intensity * light.color;
+    }
+
+    float3 blinn_phong_specular(Light light, SurfaceData surface, float3 camera_pos) {
+        float3 to_cam = normalize(camera_pos - surface.position);
+        float3 refl = reflect(light.direction, surface.normal);
+
+        float specular_exp = (1.0f - surface.roughness) * LIGHTING_MAX_SPECULAR_EXP;
+
+        float3 specular_term =
+            pow(max(dot(refl, to_cam), 0), specular_exp) *
+            light.intensity *
+            light.color;
+
+        specular_term = specular_exp > 0.01f ? specular_term : float3(0.0f);
+
+        return specular_term;
+    }
+
+    // === combined light functions =======================
+
+    float3 shade_retro(Light light, SurfaceData surface, float3 ambient, float3 camera_pos) {
+        float3 color = float3(0.0f);
+        color += ambient * surface.color;
+        color += lambert_diffuse(light, surface);
+        color += blinn_phong_specular(light, surface, camera_pos);
+        return color;
+    }
+
+    // float3 shade_pbr(Light light, float3 surface_color, float3 surface_normal) {
+    // }
 }
 
 #endif

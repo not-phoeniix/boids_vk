@@ -11,6 +11,7 @@ struct CameraPushConstants {
 struct PixelPushConstants {
     alignas(16) glm::vec3 color;
     alignas(16) glm::vec3 ambient;
+    alignas(16) glm::vec3 camera_pos;
 };
 
 struct UniformBufferObject {

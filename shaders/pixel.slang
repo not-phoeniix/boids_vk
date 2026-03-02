@@ -5,6 +5,7 @@ struct PixelPushConstants {
     [[vk_offset(128)]]
     float3 color;
     float3 ambient;
+    float3 camera_pos;
 }
 
 [[vk_push_constant]]
@@ -16,17 +17,22 @@ Sampler2D texture;
 [shader("fragment")]
 float4 main(PSIn in_data) : SV_Target {
     Light light = {
-        float3(0.7f, 0.7f, 1.0f),
-        0.8f,
-        normalize(float3(1.0f, -3.0f, 1.5f))
+        LightType::DIRECTIONAL,                 // type
+        normalize(float3(1.0f, -3.0f, 1.5f)),   // direction
+        0.8f,                                   // intensity
+        float3(1.0f, 0.0f, 0.3f),               // color
     };
 
-    float3 total_color = {0.0f, 0.0f, 0.0f};
+    SurfaceData surface = {
+        in_data.normal,                             // normal
+        texture.Sample(in_data.uv).rgb * ppc.color, // surface color
+        in_data.world_pos,                          // surface frag pos
+        0.9f                                        // roughness
+    };
 
-    float3 surface_color = texture.Sample(in_data.uv).rgb * ppc.color;
+    float3 total_color = float3(0.0f);
 
-    total_color += ppc.ambient;
-    total_color += Lighting::lambert_diffuse(light, surface_color, in_data.normal);
+    total_color += Lighting::shade_retro(light, surface, ppc.ambient, ppc.camera_pos);
 
     return float4(total_color, 1.0f);
 }

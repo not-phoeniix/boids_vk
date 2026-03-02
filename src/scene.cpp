@@ -25,7 +25,7 @@ constexpr float SPRINT_SCALAR = 4.0f;
 constexpr float LOOK_SPEED = 0.007f;
 constexpr uint32_t OBJECT_COUNT = 5000;
 constexpr float SPAWN_BOX_SIZE = 200.0f;
-constexpr glm::vec3 BOID_COLOR = {1.0f, 0.0f, 0.1f};
+constexpr glm::vec3 BOID_COLOR = {0.8f, 0.8f, 0.8f};
 
 #pragma region // helpers
 
@@ -248,7 +248,8 @@ void Scene::Draw() {
 
     PixelPushConstants pixel_data = {
         .color = BOID_COLOR,
-        .ambient = glm::vec3(0.005f)
+        .ambient = glm::vec3(0.005f),
+        .camera_pos = camera->get_position()
     };
     vkCmdPushConstants(
         command_buffer,
