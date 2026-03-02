@@ -1,12 +1,14 @@
 #include "scene.h"
 
-#include "render_thing/vertex.h"
 #include <vulkan/vulkan.h>
 #include "input.h"
 #include <string>
 #include <iostream>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/norm.hpp>
+#include "graphics.h"
+#include "data_structs.h"
+#include "vertex.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -27,7 +29,7 @@ constexpr glm::vec3 BOID_COLOR = {1.0f, 0.0f, 0.1f};
 
 #pragma region // helpers
 
-static std::shared_ptr<Mesh> load_mesh(const std::string& path, const GraphicsContext& ctx) {
+static std::shared_ptr<Mesh> load_mesh(const std::string& path, const GraphicsContext& g_ctx, const ApiContext& a_ctx) {
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
 
@@ -72,14 +74,20 @@ static std::shared_ptr<Mesh> load_mesh(const std::string& path, const GraphicsCo
 
     MeshCreateInfo mesh_info = {
         .vertices = vertices.data(),
+        .vertex_size = sizeof(Vertex),
         .num_vertices = static_cast<uint32_t>(vertices.size()),
         .indices = indices.data(),
-        .num_indices = static_cast<uint32_t>(indices.size())
+        .index_size = sizeof(uint32_t),
+        .num_indices = static_cast<uint32_t>(indices.size()),
     };
-    return std::make_shared<Mesh>(mesh_info, ctx);
+    return std::make_shared<Mesh>(mesh_info, g_ctx, a_ctx);
 }
 
-static std::shared_ptr<Image> load_image(const std::string& path, const GraphicsContext& ctx) {
+static std::shared_ptr<Image> load_image(
+    const std::string& path,
+    const GraphicsContext& g_ctx,
+    const ApiContext& a_ctx
+) {
     int width;
     int height;
     int channels;
@@ -104,8 +112,8 @@ static std::shared_ptr<Image> load_image(const std::string& path, const Graphics
         .memory_properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         .view_aspect_flags = VK_IMAGE_ASPECT_COLOR_BIT
     };
-    auto image = std::make_shared<Image>(create_info, ctx);
-    image->CopyData(pixels, ctx);
+    auto image = std::make_shared<Image>(create_info, a_ctx);
+    image->CopyData(pixels, g_ctx, a_ctx);
 
     stbi_image_free(pixels);
 
@@ -125,44 +133,32 @@ static glm::vec3 get_rot_look_at(const glm::vec3& source, const glm::vec3& targe
 
 #pragma endregion
 
-void Scene::Init(GraphicsManager& graphics) {
-    GraphicsContext ctx = graphics.get_context();
+Scene::Scene() {
+    ApiContext a_ctx = Graphics::Manager->get_api_context();
+    GraphicsContext g_ctx = Graphics::Manager->get_graphics_context();
 
-    mesh = load_mesh("res/cube.obj", ctx);
+    mesh = load_mesh("res/cube.obj", g_ctx, a_ctx);
 
     camera = std::make_unique<Camera>(
         glm::vec3(0.0f, 50.0, -200.0f),
-        graphics.get_aspect(),
+        Graphics::Manager->get_aspect(),
         glm::radians(85.0f),
         0.01f,
         1000.0f
     );
     camera->LookAt(glm::vec3(0.0f));
 
-    image = load_image("res/dogwho_is_also___rendered.png", ctx);
-
-    SamplerCreateInfo sampler_create_info = {
-        .min_filter = VK_FILTER_LINEAR,
-        .mag_filter = VK_FILTER_LINEAR,
-        .address_u = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-        .address_v = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-        .address_w = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-    };
-    sampler = std::make_unique<Sampler>(sampler_create_info, ctx);
+    image = load_image("res/dogwho_is_also___rendered.png", g_ctx, a_ctx);
+    Graphics::write_sampler_image(image->get_view());
 
     boid_system_populate(&boid_system, OBJECT_COUNT, SPAWN_BOX_SIZE);
-    uniforms.resize(OBJECT_COUNT);
-    for (uint32_t i = 0; i < OBJECT_COUNT; i++) {
-        uniforms[i] = graphics.MakeNewUniform(image->get_view(), sampler->get_sampler());
-    }
 }
 
-void Scene::Deinit() {
+Scene::~Scene() {
     // delete shared ptrs ! call deconstructors !
     mesh.reset();
     image.reset();
     camera.reset();
-    uniforms.clear();
     boid_system_destroy(&boid_system);
 }
 
@@ -212,13 +208,16 @@ void Scene::Update(float dt) {
     }
 }
 
-void Scene::Draw(GraphicsManager& graphics) {
-    camera->set_aspect(graphics.get_aspect());
+void Scene::Draw() {
+    VkCommandBuffer command_buffer = Graphics::Manager->get_command_buffer();
+    camera->set_aspect(Graphics::Manager->get_aspect());
+
+    // ~~~ binding vertex/index buffers ~~~
 
     VkDeviceSize offset = 0;
     VkBuffer vertex_buffer = mesh->get_vertex_buffer();
     vkCmdBindVertexBuffers(
-        graphics.get_command_buffer(),
+        command_buffer,
         0,
         1,
         &vertex_buffer,
@@ -226,33 +225,41 @@ void Scene::Draw(GraphicsManager& graphics) {
     );
 
     vkCmdBindIndexBuffer(
-        graphics.get_command_buffer(),
+        command_buffer,
         mesh->get_index_buffer(),
         0,
         VK_INDEX_TYPE_UINT32
     );
 
+    // ~~~ push constants ~~~
+
     CameraPushConstants camera_data = {
         .view = camera->get_view(),
         .proj = camera->get_proj()
     };
-    graphics.CmdPushConstants(
-        &camera_data,
-        sizeof(camera_data),
+    vkCmdPushConstants(
+        command_buffer,
+        Graphics::GraphicsPipeline->get_layout(),
         VK_SHADER_STAGE_VERTEX_BIT,
-        0
+        0,
+        sizeof(camera_data),
+        &camera_data
     );
 
     PixelPushConstants pixel_data = {
         .color = BOID_COLOR,
         .ambient = glm::vec3(0.005f)
     };
-    graphics.CmdPushConstants(
-        &pixel_data,
-        sizeof(pixel_data),
+    vkCmdPushConstants(
+        command_buffer,
+        Graphics::GraphicsPipeline->get_layout(),
         VK_SHADER_STAGE_FRAGMENT_BIT,
-        sizeof(CameraPushConstants)
+        sizeof(CameraPushConstants), // offset by camera data
+        sizeof(pixel_data),
+        &pixel_data
     );
+
+    // ~~~ actual drawing code ~~~
 
     for (uint32_t b = 0; b < boid_system.boid_count; b++) {
         // make matrices
@@ -267,12 +274,25 @@ void Scene::Draw(GraphicsManager& graphics) {
         UniformBufferObject ubo = {
             .world = world
         };
-        uniforms[b]->CopyData(ubo);
-        graphics.CmdBindUniform(uniforms[b]);
+        VkDescriptorSet set = Graphics::RingBuffer->CopyToNextRegion(&ubo, sizeof(ubo));
+        std::vector<VkDescriptorSet> sets = {
+            set,
+            Graphics::SamplerDescriptorSets[Graphics::SwapChain->get_frame_index()]
+        };
+        vkCmdBindDescriptorSets(
+            command_buffer,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            Graphics::GraphicsPipeline->get_layout(),
+            0,
+            static_cast<uint32_t>(sets.size()),
+            sets.data(),
+            0,
+            nullptr
+        );
 
         // draw boid box
         vkCmdDrawIndexed(
-            graphics.get_command_buffer(),
+            command_buffer,
             mesh->get_num_indices(),
             1,
             0,

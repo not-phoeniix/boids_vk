@@ -1,21 +1,21 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
-#include "graphics_context.h"
+#include "context_structs.h"
 
 namespace RenderThing {
     struct GraphicsPipelineCreateInfo {
         VkPipelineShaderStageCreateInfo* shader_stages;
         uint32_t shader_stage_count;
-        VkPipelineVertexInputStateCreateInfo* vertex_input;
-        VkPipelineInputAssemblyStateCreateInfo* input_assembly;
-        VkPipelineViewportStateCreateInfo* viewport;
-        VkPipelineRasterizationStateCreateInfo* rasterizer;
-        VkPipelineMultisampleStateCreateInfo* multisample;
-        VkPipelineDepthStencilStateCreateInfo* depth_stencil;
-        VkPipelineColorBlendStateCreateInfo* color_blend;
-        VkPipelineDynamicStateCreateInfo* dynamic_state;
-        VkPipelineLayoutCreateInfo* layout_create_info;
+        const VkPipelineVertexInputStateCreateInfo* vertex_input;
+        const VkPipelineInputAssemblyStateCreateInfo* input_assembly;
+        const VkPipelineViewportStateCreateInfo* viewport;
+        const VkPipelineRasterizationStateCreateInfo* rasterizer;
+        const VkPipelineMultisampleStateCreateInfo* multisample;
+        const VkPipelineDepthStencilStateCreateInfo* depth_stencil;
+        const VkPipelineColorBlendStateCreateInfo* color_blend;
+        const VkPipelineDynamicStateCreateInfo* dynamic_state;
+        const VkPipelineLayoutCreateInfo* layout_create_info;
         VkRenderPass render_pass;
         uint32_t subpass_index;
     };
@@ -27,7 +27,7 @@ namespace RenderThing {
         VkPipeline graphics_pipeline;
 
        public:
-        GraphicsPipeline(const GraphicsPipelineCreateInfo& create_info, const GraphicsContext& ctx);
+        GraphicsPipeline(const GraphicsPipelineCreateInfo& create_info, const ApiContext& a_ctx);
         ~GraphicsPipeline();
 
         VkPipelineLayout get_layout() const;

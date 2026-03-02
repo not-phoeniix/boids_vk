@@ -4,14 +4,15 @@
 #include <vector>
 #include <memory>
 #include "../base/base.h"
+#include <optional>
 
 namespace RenderThing {
     struct SwapChainCreateInfo {
-        VkFormat depth_format;
-        VkSurfaceFormatKHR surface_format;
-        VkPresentModeKHR present_mode;
         uint32_t frame_flight_count;
-        VkExtent2D extent;
+        std::optional<VkFormat> depth_format;
+        std::optional<VkSurfaceFormatKHR> surface_format;
+        std::optional<VkPresentModeKHR> present_mode;
+        std::optional<VkExtent2D> extent;
         VkRenderPass render_pass;
     };
 
@@ -29,13 +30,13 @@ namespace RenderThing {
         uint32_t image_index;
         uint32_t frame_flight_index;
 
-        void CreateSwapChain(const SwapChainCreateInfo& create_info, const GraphicsContext& ctx);
-        void CreateImageViews(const GraphicsContext& ctx);
-        void CreateDepthImage(const SwapChainCreateInfo& create_info, const GraphicsContext& ctx);
-        void CreateFrameBuffers(const SwapChainCreateInfo& create_info, const GraphicsContext& ctx);
+        void CreateSwapChain(const SwapChainCreateInfo& create_info, const ApiContext& a_ctx);
+        void CreateImageViews(const ApiContext& a_ctx);
+        void CreateDepthImage(const SwapChainCreateInfo& create_info, const GraphicsContext& g_ctx, const ApiContext& a_ctx);
+        void CreateFrameBuffers(const SwapChainCreateInfo& create_info, const ApiContext& a_ctx);
 
        public:
-        SwapChain(const SwapChainCreateInfo& create_info, const GraphicsContext& ctx);
+        SwapChain(const SwapChainCreateInfo& create_info, const GraphicsContext& g_ctx, const ApiContext& a_ctx);
         ~SwapChain();
 
         VkResult NextImage(VkSemaphore semaphore, VkFence fence);
@@ -47,6 +48,7 @@ namespace RenderThing {
         VkFormat get_image_format() const;
         VkFormat get_depth_format() const;
         uint32_t get_image_count() const;
+        uint32_t get_frame_flight_count() const;
         VkSwapchainKHR get_swap_chain() const;
         VkFramebuffer get_current_framebuffer() const;
     };

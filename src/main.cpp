@@ -7,6 +7,7 @@
 #include "scene.h"
 #include <cstdlib>
 #include "thread_pool.h"
+#include "graphics.h"
 
 constexpr uint32_t WIDTH = 800;
 constexpr uint32_t HEIGHT = 600;
@@ -20,16 +21,14 @@ static void run() {
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "!! boids_vk !!", nullptr, nullptr);
 
-    RenderThing::GraphicsManager graphics(window);
-    Scene scene;
+    Graphics::init(window);
+    auto scene = std::make_unique<Scene>();
 
     float dt_sum = 0;
     uint32_t frame_counter = 0;
 
     // seed random with current time
     srand((unsigned int)time(NULL));
-
-    scene.Init(graphics);
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -46,11 +45,11 @@ static void run() {
             glfwSetWindowShouldClose(window, true);
         }
 
-        scene.Update(dt);
+        scene->Update(dt);
 
-        graphics.Begin();
-        scene.Draw(graphics);
-        graphics.EndAndPresent();
+        Graphics::Manager->Begin();
+        scene->Draw();
+        Graphics::Manager->EndAndPresent();
 
         frame_counter++;
         dt_sum += dt;
@@ -66,9 +65,10 @@ static void run() {
         time_prev = time_now;
     }
 
-    vkDeviceWaitIdle(graphics.get_device());
+    vkDeviceWaitIdle(Graphics::Manager->get_device());
 
-    scene.Deinit();
+    scene.reset();
+    Graphics::deinit();
 
     glfwDestroyWindow(window);
     glfwTerminate();

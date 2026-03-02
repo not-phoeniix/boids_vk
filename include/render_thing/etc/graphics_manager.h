@@ -4,80 +4,76 @@
 #include <vector>
 #include <GLFW/glfw3.h>
 #include <memory>
-#include "../uniform_buffer_object.h"
-#include "../camera_push_constants.h"
-#include "../pixel_push_constants.h"
 #include "../base/base.h"
-#include "uniform.h"
 #include "swap_chain.h"
+#include "destruction_queue.h"
+#include "api_cluster.h"
 
 namespace RenderThing {
+    struct GraphicsManagerCreateInfo {
+        VkClearValue clear_value;
+        GLFWwindow* window;
+        std::shared_ptr<ApiCluster> api_cluster;
+        const SwapChainCreateInfo& swap_chain;
+        const GraphicsPipelineCreateInfo& graphics_pipeline;
+    };
+
+    struct FrameData {
+        VkSemaphore image_available_semaphore;
+        VkFence in_flight_fence;
+        VkCommandBuffer command_buffer;
+    };
+
     class GraphicsManager {
        private:
-        VkInstance instance;
-        VkPhysicalDevice physical_device;
+        std::shared_ptr<ApiCluster> api_cluster;
         VkDevice device;
-        VkSurfaceKHR surface;
-        GLFWwindow* window;
 
-        std::unique_ptr<SwapChain> swap_chain;
-        std::vector<VkSemaphore> image_available_sempahores;
+        SwapChainCreateInfo swap_chain_create_info;
+        std::shared_ptr<SwapChain> swap_chain;
         std::vector<VkSemaphore> render_finished_semaphores;
-        std::vector<VkFence> in_flight_fences;
+        std::vector<FrameData> frame_datas;
         bool framebuffer_resized;
 
-        VkRenderPass render_pass;
-        std::unique_ptr<GraphicsPipeline> pipeline;
-
-        VkDescriptorSetLayout descriptor_set_layout;
-        VkDescriptorPool descriptor_pool;
-        std::vector<std::shared_ptr<Uniform>> uniforms;
+        std::shared_ptr<RenderPass> render_pass;
+        std::shared_ptr<GraphicsPipeline> pipeline;
 
         VkQueue graphics_queue;
         VkQueue present_queue;
         VkCommandPool command_pool;
-        std::vector<VkCommandBuffer> command_buffers;
         VkClearValue clear_value;
 
-        void CreateInstance();
-        void PickPhysicalDevice();
-        void CreateLogicalDevice();
-        void CreateSurface();
+        DestructionQueue destruction_queue;
 
-        void CreateDescriptorSetLayout();
-        void CreateDescriptorPool();
-
-        void CreateRenderPass();
-        void CreateSwapChain();
-        void CreateGraphicsPipeline();
-        void CreateCommandPool();
-        void CreateCommandBuffers();
-        void CreateSyncObjects();
+        void CreateCommandPool(const GraphicsManagerCreateInfo& create_info);
+        void CreateFrameDataAndCommandBuffers(const GraphicsManagerCreateInfo& create_info);
+        void CreateRenderObjects(const GraphicsManagerCreateInfo& create_info);
+        void CreateSyncObjects(const GraphicsManagerCreateInfo& create_info);
 
         void RecreateSwapChain();
 
        public:
-        GraphicsManager(GLFWwindow* window);
+        GraphicsManager(const GraphicsManagerCreateInfo& create_info);
         ~GraphicsManager();
 
         void Begin();
         void EndAndPresent();
-
-        std::shared_ptr<Uniform> MakeNewUniform(VkImageView image_view, VkSampler sampler);
-        void CmdBindUniform(std::shared_ptr<Uniform> uniform);
-        void CmdPushConstants(const void* data, size_t data_size, VkShaderStageFlags shader_stage, uint32_t offset);
 
         // getters/setters
 
         VkCommandBuffer get_command_buffer() const;
         VkDevice get_device() const;
         VkPhysicalDevice get_physical_device() const;
+        std::shared_ptr<RenderPass> get_render_pass() const;
+        std::shared_ptr<GraphicsPipeline> get_graphics_pipeline() const;
+        std::shared_ptr<SwapChain> get_swap_chain() const;
         VkClearValue get_clear_value() const;
         VkCommandPool get_command_pool() const;
         VkQueue get_graphics_queue() const;
         VkQueue get_present_queue() const;
         VkExtent2D get_swapchain_extent() const;
-        GraphicsContext get_context() const;
+        ApiContext get_api_context() const;
+        GraphicsContext get_graphics_context() const;
         float get_aspect() const;
         void set_clear_value(VkClearValue clear_value);
         void mark_resized();

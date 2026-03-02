@@ -4,7 +4,7 @@ layout(push_constant, std430) uniform PushConstants {
     layout(offset=128) vec3 color;
     vec3 ambient;
 };
-layout(binding = 1) uniform sampler2D texSampler;
+layout(set = 1, binding = 0) uniform sampler2D texSampler;
 
 layout(location = 1) in vec3 inNormal;
 layout(location = 3) in vec2 inUV;
