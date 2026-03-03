@@ -27,7 +27,7 @@ class JumpSkipfield {
 
         for (size_t i = 0; i < size; i++) {
             skipfield[i] = i == 0 ? size : i + 1;
-            free_address_stack[i] = size - i;
+            free_address_stack[i] = size - i - 1;
         }
     }
 
@@ -37,7 +37,7 @@ class JumpSkipfield {
         delete[] free_address_stack;
     }
 
-    void iterate(std::function<void(const T* element, uint32_t element_idx)> process_element) {
+    void iterate(std::function<void(const T* element, uint32_t address)> process_element) {
         // where every zero represents an element, every non-zero that
         //   follows a zero represents how many places we gotta
         //   skip to get to the next zero, and every other non-zero
@@ -46,15 +46,18 @@ class JumpSkipfield {
         //
         // 000100022000032300523450010
 
-        uint32_t i = skipfield[0];
-        T* element_ptr = data + i;
+        uint32_t addr = skipfield[0];
+        T* element_ptr = data + addr;
         uint32_t* end = skipfield + size;
 
-        for (uint32_t* skip_ptr = skipfield; skip_ptr != end; skip_ptr++) {
-            process_element(element_ptr, i);
+        for (uint32_t* skip_ptr = skipfield + addr; skip_ptr != end;) {
+            process_element(element_ptr, addr);
+
+            skip_ptr++;
 
             element_ptr += 1 + *skip_ptr;
-            i += 1 + *skip_ptr;
+            addr += 1 + *skip_ptr;
+
             skip_ptr += *skip_ptr;
         }
     }
@@ -92,7 +95,7 @@ class JumpSkipfield {
         free_address_stack[stack_count++] = address;
     }
 
-    bool add(T element, uint32_t* out_address) {
+    bool add(T element, uint32_t* out_address = nullptr) {
         // can't add to a full list
         if (stack_count == 0) return false;
 
@@ -107,9 +110,9 @@ class JumpSkipfield {
 
         // get adjacent values (use zero if we're on an edge)
         uint32_t value_left = address == 0 ? 0 : skipfield[address - 1];
-        uint32_t value_right = address == static_cast<uint32_t>(size) - 1
-                                   ? 0
-                                   : skipfield[address + 1];
+        // uint32_t value_right = address == static_cast<uint32_t>(size) - 1
+        //                            ? 0
+        //                            : skipfield[address + 1];
 
         uint32_t prev_block_size = skipfield[address - value_left];
 
@@ -128,6 +131,7 @@ class JumpSkipfield {
         // finally, set the skip value for current address
         //   as taken and save output address
         skipfield[address] = 0;
+        data[address] = element;
         if (out_address != nullptr) {
             *out_address = address;
         }
