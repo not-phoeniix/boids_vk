@@ -14,6 +14,6 @@ struct PixelPushConstants {
     alignas(16) glm::vec3 camera_pos;
 };
 
-struct UniformBufferObject {
+struct InstanceData {
     glm::mat4x4 world;
 };

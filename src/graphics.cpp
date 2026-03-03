@@ -6,6 +6,7 @@
 #include <string>
 #include "data_structs.h"
 #include <stdexcept>
+#include "program_params.h"
 
 const std::vector<const char*> VALIDATION_LAYERS = {
     "VK_LAYER_KHRONOS_validation"
@@ -61,15 +62,49 @@ namespace Graphics {
         destroy_queue.QueueDelete([] { ApiCluster.reset(); });
     }
 
-    static void create_ring_buffer() {
+    static void create_instance_data_buffers() {
+        // ~~~ create descriptor pool ~~~
+
+        VkDescriptorPoolSize pool_size = {
+            .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = FRAMES_IN_FLIGHT
+        };
+        rt::DescriptorPoolCreateInfo pool_info = {
+            .max_sets = FRAMES_IN_FLIGHT,
+            .flags = 0,
+            .pool_sizes = &pool_size,
+            .pool_size_count = 1
+        };
+        InstanceDescriptorPool = std::make_unique<rt::DescriptorPool>(
+            pool_info,
+            ApiCluster->get_api_context()
+        );
+        destroy_queue.QueueDelete([] { InstanceDescriptorPool.reset(); });
+
+        // ~~~ create buffers ~~~
+
+        rt::BufferCreateInfo buffer_info = {
+            .size = sizeof(InstanceData) * ProgramParams::BOID_COUNT,
+            .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            .properties = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+        };
+
+        InstanceDataBuffers.resize(FRAMES_IN_FLIGHT);
+        for (size_t i = 0; i < InstanceDataBuffers.size(); i++) {
+            InstanceDataBuffers[i] = std::make_shared<rt::Buffer>(
+                buffer_info,
+                ApiCluster->get_api_context()
+            );
+            InstanceDataBuffers[i]->Map();
+        }
+        destroy_queue.QueueDelete([] { InstanceDataBuffers.clear(); });
+
         // ~~~ create descriptor set layout ~~~
 
         std::vector<VkDescriptorSetLayoutBinding> bindings = {
             (VkDescriptorSetLayoutBinding) {
                 .binding = 0,
-                .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                // THIS REPRESENTS NUMBER OF VALUES IN A POSSIBLE UBO ARRAY...
-                //   TODO: change this later so we can pass in a ton of matrix data
+                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                 .descriptorCount = 1,
                 .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
                 .pImmutableSamplers = nullptr
@@ -81,28 +116,67 @@ namespace Graphics {
             .binding_count = static_cast<uint32_t>(bindings.size()),
         };
 
-        RingBufferLayout = std::make_shared<rt::DescriptorSetLayout>(
+        InstanceDataBufferLayout = std::make_shared<rt::DescriptorSetLayout>(
             layout_create_info,
             ApiCluster->get_api_context()
         );
-        destroy_queue.QueueDelete([] { RingBufferLayout.reset(); });
+        destroy_queue.QueueDelete([] { InstanceDataBufferLayout.reset(); });
 
-        // ~~~ create ring buffer itself ~~~
+        // ~~~ allocate descriptor sets for buffers ~~~
 
-        rt::RingBufferCreateInfo ring_buffer_create_info = {
-            .element_size = sizeof(UniformBufferObject),
-            .max_elements = 100000,
-            .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            .properties = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-            .descriptor_type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .layout = RingBufferLayout->get_layout()
+        InstanceDescriptorSets.resize(FRAMES_IN_FLIGHT);
+
+        // vector full of identical layouts
+        std::vector<VkDescriptorSetLayout> set_layouts(
+            FRAMES_IN_FLIGHT,
+            InstanceDataBufferLayout->get_layout()
+        );
+        VkDescriptorSetAllocateInfo alloc_info = {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .descriptorPool = InstanceDescriptorPool->get_pool(),
+            .descriptorSetCount = FRAMES_IN_FLIGHT,
+            .pSetLayouts = set_layouts.data()
         };
 
-        RingBuffer = std::make_shared<rt::RingBuffer>(
-            ring_buffer_create_info,
-            ApiCluster->get_api_context()
+        VkResult result = vkAllocateDescriptorSets(
+            ApiCluster->get_device(),
+            &alloc_info,
+            InstanceDescriptorSets.data()
         );
-        destroy_queue.QueueDelete([] { RingBuffer.reset(); });
+        if (result != VK_SUCCESS) {
+            throw std::runtime_error("Failed to allocate instance data descriptor set!");
+        }
+
+        // ~~~ write to descriptor sets ~~~
+
+        std::vector<VkWriteDescriptorSet> writes(FRAMES_IN_FLIGHT);
+        for (size_t i = 0; i < InstanceDescriptorSets.size(); i++) {
+            VkDescriptorBufferInfo buffer_info = {
+                .buffer = InstanceDataBuffers[i]->get_buffer(),
+                .offset = 0,
+                .range = InstanceDataBuffers[i]->get_size()
+            };
+
+            writes[i] = (VkWriteDescriptorSet) {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet = InstanceDescriptorSets[i],
+                .dstBinding = 0,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                .pImageInfo = nullptr,
+                .pBufferInfo = &buffer_info,
+                .pTexelBufferView = nullptr
+            };
+        }
+
+        vkUpdateDescriptorSets(
+            ApiCluster->get_device(),
+            static_cast<uint32_t>(writes.size()),
+            writes.data(),
+            0,
+            nullptr
+        );
     }
 
     static void create_sampler() {
@@ -164,7 +238,7 @@ namespace Graphics {
         );
         destroy_queue.QueueDelete([] { SamplerLayout.reset(); });
 
-        // ~~~ allocate descriptor set for sampler ~~~
+        // ~~~ allocate descriptor sets for sampler ~~~
 
         SamplerDescriptorSets.resize(FRAMES_IN_FLIGHT);
 
@@ -340,7 +414,7 @@ namespace Graphics {
         };
 
         std::vector<VkDescriptorSetLayout> layouts = {
-            RingBufferLayout->get_layout(),
+            InstanceDataBufferLayout->get_layout(),
             SamplerLayout->get_layout()
         };
         VkPipelineLayoutCreateInfo layout_create_info = {
@@ -405,7 +479,7 @@ namespace Graphics {
         glfwGetWindowSize(window, &width, &height);
 
         create_api_cluster(window);
-        create_ring_buffer();
+        create_instance_data_buffers();
         create_sampler();
         create_graphics_manager(
             window,

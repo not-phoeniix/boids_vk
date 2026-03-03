@@ -8,10 +8,7 @@
 #include <cstdlib>
 #include "thread_pool.h"
 #include "graphics.h"
-
-constexpr uint32_t WIDTH = 800;
-constexpr uint32_t HEIGHT = 600;
-constexpr float FPS_AVG_INTERVAL = 1.0f;
+#include "program_params.h"
 
 static void run() {
     glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
@@ -19,7 +16,13 @@ static void run() {
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "!! boids_vk !!", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(
+        ProgramParams::WINDOW_WIDTH,
+        ProgramParams::WINDOW_HEIGHT,
+        "!! boids_vk !!",
+        nullptr,
+        nullptr
+    );
 
     Graphics::init(window);
     auto scene = std::make_unique<Scene>();
@@ -54,7 +57,7 @@ static void run() {
         frame_counter++;
         dt_sum += dt;
 
-        if (dt_sum >= FPS_AVG_INTERVAL) {
+        if (dt_sum >= ProgramParams::FPS_AVG_INTERVAL) {
             float avg_fps = 1.0f / (dt_sum / (float)frame_counter);
             std::cout << "avg fps: " << avg_fps << std::endl;
 

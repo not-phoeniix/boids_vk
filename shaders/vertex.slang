@@ -5,7 +5,7 @@ struct CameraPushConstants {
     float4x4 proj;
 }
 
-struct ObjectData {
+struct InstanceData {
     float4x4 world;
 }
 
@@ -13,16 +13,17 @@ struct ObjectData {
 CameraPushConstants cpc;
 
 [[vk_binding(0, 0)]]
-ConstantBuffer<ObjectData> object_data;
+StructuredBuffer<InstanceData> instance_datas;
 
 [shader("vertex")]
-PSIn main(Vertex vert) {
-    float4x4 wvp = mul(cpc.proj, mul(cpc.view, object_data.world));
+PSIn main(Vertex vert, uint iid: SV_VulkanInstanceID) {
+    float4x4 world_mat = instance_datas[iid].world;
+    float4x4 wvp = mul(cpc.proj, mul(cpc.view, world_mat));
 
     PSIn output;
     output.position = mul(wvp, float4(vert.position, 1.0f));
-    output.world_pos = mul(float3x3(object_data.world), vert.position);
-    output.normal = normalize(mul(float3x3(object_data.world), vert.normal));
+    output.world_pos = mul(float3x3(world_mat), vert.position);
+    output.normal = normalize(mul(float3x3(world_mat), vert.normal));
     output.uv = vert.uv;
 
     return output;

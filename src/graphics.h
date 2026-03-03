@@ -11,8 +11,10 @@ namespace Graphics {
     inline std::shared_ptr<rt::GraphicsManager> Manager = nullptr;
     inline std::shared_ptr<rt::SwapChain> SwapChain = nullptr;
 
-    inline std::shared_ptr<rt::DescriptorSetLayout> RingBufferLayout = nullptr;
-    inline std::shared_ptr<rt::RingBuffer> RingBuffer = nullptr;
+    inline std::vector<std::shared_ptr<rt::Buffer>> InstanceDataBuffers;
+    inline std::shared_ptr<rt::DescriptorPool> InstanceDescriptorPool = nullptr;
+    inline std::shared_ptr<rt::DescriptorSetLayout> InstanceDataBufferLayout = nullptr;
+    inline std::vector<VkDescriptorSet> InstanceDescriptorSets;
 
     inline std::shared_ptr<rt::Sampler> Sampler = nullptr;
     inline std::shared_ptr<rt::DescriptorPool> SamplerDescriptorPool = nullptr;

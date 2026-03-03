@@ -5,6 +5,7 @@
 #include <iostream>
 #include <mutex>
 #include <thread>
+#include "data_structs.h"
 
 constexpr uint32_t CHUNKS_PER_AXIS = 6;
 
@@ -28,6 +29,17 @@ static std::mutex mtx;
 
 static float randf_range(float min, float max) {
     return min + ((max - min) * ((rand() / (float)RAND_MAX)));
+}
+
+static glm::vec3 get_rot_look_at(const glm::vec3& source, const glm::vec3& target) {
+    glm::vec3 delta = target - source;
+    if (glm::length2(delta) > FLT_EPSILON) {
+        delta = glm::normalize(delta);
+    }
+
+    float yaw = atan2f(delta.x, delta.z);
+    float pitch = asinf(-delta.y);
+    return glm::vec3(pitch, yaw, 0);
 }
 
 #pragma region // behaviors
@@ -194,7 +206,12 @@ static void update_boid_container(uint32_t b, BoidSystem* system) {
     system->boid_contained_chunk_index[b] = desired_index;
 }
 
-static void update_boid(uint32_t b, BoidSystem* system, float dt) {
+static void update_boid(
+    uint32_t b,
+    BoidSystem* system,
+    std::shared_ptr<rt::Buffer> instance_data_buffer,
+    float dt
+) {
     glm::vec3 avg_position = {0.0f, 0.0f, 0.0f};
     glm::vec3 avg_direction = {0.0f, 0.0f, 0.0f};
     uint32_t num_adjacent = 0;
@@ -271,9 +288,21 @@ static void update_boid(uint32_t b, BoidSystem* system, float dt) {
 
     system->boid_velocities[b] += total_steer * dt;
     system->boid_positions[b] += system->boid_velocities[b] * dt;
+
+    // ~~~ update boid transform matrices ~~~
+
+    glm::vec3 pos = system->boid_positions[b];
+    glm::vec3 rot = get_rot_look_at(pos, pos + system->boid_velocities[b]);
+    glm::mat4 world = glm::translate(glm::mat4(1.0f), pos);
+    world = glm::rotate(world, rot.z, glm::vec3(0.0f, 0.0f, 1.0f));
+    world = glm::rotate(world, rot.y, glm::vec3(0.0f, 1.0f, 0.0f));
+    world = glm::rotate(world, rot.x, glm::vec3(1.0f, 0.0f, 0.0f));
+
+    InstanceData data = {world};
+    instance_data_buffer->CopyFromHost(&data, sizeof(data), sizeof(InstanceData) * b);
 }
 
-void boid_system_update(BoidSystem* system, float dt) {
+void boid_system_update(BoidSystem* system, std::shared_ptr<rt::Buffer> instance_data_buffer, float dt) {
     // UPDATE CONTAINERS IN BATCHES
     {
         uint32_t b_start = 0;
@@ -308,9 +337,9 @@ void boid_system_update(BoidSystem* system, float dt) {
             if (count > remaining) count = remaining;
 
             system->thread_pool->QueueJob(
-                [b_start, count, system, dt](uint32_t thread_index) {
+                [b_start, count, system, instance_data_buffer, dt](uint32_t thread_index) {
                     for (uint32_t b = b_start; b < b_start + count; b++) {
-                        update_boid(b, system, dt);
+                        update_boid(b, system, instance_data_buffer, dt);
                     }
                 }
             );

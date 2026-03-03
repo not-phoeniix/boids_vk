@@ -9,6 +9,7 @@
 #include "graphics.h"
 #include "data_structs.h"
 #include "vertex.h"
+#include "program_params.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -17,15 +18,6 @@
 #include "tiny_obj_loader.h"
 
 using namespace rt;
-
-constexpr float PERFORMANCE_PRINT_INTERVAL = 1.0f;
-
-constexpr float MOVE_SPEED = 10.0f;
-constexpr float SPRINT_SCALAR = 4.0f;
-constexpr float LOOK_SPEED = 0.007f;
-constexpr uint32_t OBJECT_COUNT = 5000;
-constexpr float SPAWN_BOX_SIZE = 200.0f;
-constexpr glm::vec3 BOID_COLOR = {0.8f, 0.8f, 0.8f};
 
 #pragma region // helpers
 
@@ -120,17 +112,6 @@ static std::shared_ptr<Image> load_image(
     return image;
 }
 
-static glm::vec3 get_rot_look_at(const glm::vec3& source, const glm::vec3& target) {
-    glm::vec3 delta = target - source;
-    if (glm::length2(delta) > FLT_EPSILON) {
-        delta = glm::normalize(delta);
-    }
-
-    float yaw = atan2f(delta.x, delta.z);
-    float pitch = asinf(-delta.y);
-    return glm::vec3(pitch, yaw, 0);
-}
-
 #pragma endregion
 
 Scene::Scene() {
@@ -151,7 +132,11 @@ Scene::Scene() {
     image = load_image("res/dogwho_is_also___rendered.png", g_ctx, a_ctx);
     Graphics::write_sampler_image(image->get_view());
 
-    boid_system_populate(&boid_system, OBJECT_COUNT, SPAWN_BOX_SIZE);
+    boid_system_populate(
+        &boid_system,
+        ProgramParams::BOID_COUNT,
+        ProgramParams::BOID_SPAWN_BOX_SIZE
+    );
 }
 
 Scene::~Scene() {
@@ -169,16 +154,20 @@ void Scene::Update(float dt) {
     glm::vec3 move = Input::get_move_axis();
 
     glm::vec3 offset(0.0f);
-    offset += camera->get_forward() * dt * MOVE_SPEED * move.z;
-    offset += camera->get_right() * dt * MOVE_SPEED * move.x;
-    offset += glm::vec3(0.0f, 1.0f, 0.0f) * dt * MOVE_SPEED * move.y;
+    offset += camera->get_forward() * dt * ProgramParams::CAM_MOVE_SPEED * move.z;
+    offset += camera->get_right() * dt * ProgramParams::CAM_MOVE_SPEED * move.x;
+    offset += glm::vec3(0.0f, 1.0f, 0.0f) * dt * ProgramParams::CAM_MOVE_SPEED * move.y;
     if (Input::get_is_sprinting()) {
-        offset *= SPRINT_SCALAR;
+        offset *= ProgramParams::CAM_SPRINT_SCALAR;
     }
     camera->MoveBy(offset);
 
     glm::vec2 mouse = Input::get_mouse_delta();
-    glm::vec3 look(mouse.y * LOOK_SPEED, mouse.x * LOOK_SPEED, 0.0f);
+    glm::vec3 look(
+        mouse.y * ProgramParams::CAM_LOOK_SPEED,
+        mouse.x * ProgramParams::CAM_LOOK_SPEED,
+        0.0f
+    );
     if (Input::get_lmb_down()) {
         camera->RotateBy(look);
     }
@@ -186,7 +175,11 @@ void Scene::Update(float dt) {
     // update boid system
 
     float boid_time_start = glfwGetTime();
-    boid_system_update(&boid_system, dt);
+    boid_system_update(
+        &boid_system,
+        Graphics::InstanceDataBuffers[Graphics::SwapChain->get_frame_index()],
+        dt
+    );
     float boid_time_end = glfwGetTime();
 
     static float boid_time_sum = 0.0f;
@@ -197,7 +190,7 @@ void Scene::Update(float dt) {
     time += dt;
 
     static float print_time_prev = 0;
-    if (time >= print_time_prev + PERFORMANCE_PRINT_INTERVAL) {
+    if (time >= print_time_prev + ProgramParams::BOID_PERFORMANCE_INTERVAL) {
         print_time_prev = time;
 
         float avg = boid_time_sum / static_cast<float>(frame_counter);
@@ -247,7 +240,7 @@ void Scene::Draw() {
     );
 
     PixelPushConstants pixel_data = {
-        .color = BOID_COLOR,
+        .color = ProgramParams::BOID_COLOR,
         .ambient = glm::vec3(0.005f),
         .camera_pos = camera->get_position()
     };
@@ -262,43 +255,30 @@ void Scene::Draw() {
 
     // ~~~ actual drawing code ~~~
 
-    for (uint32_t b = 0; b < boid_system.boid_count; b++) {
-        // make matrices
-        glm::vec3 pos = boid_system.boid_positions[b];
-        glm::vec3 rot = get_rot_look_at(pos, pos + boid_system.boid_velocities[b]);
-        glm::mat4 world = glm::translate(glm::mat4(1.0f), pos);
-        world = glm::rotate(world, rot.z, glm::vec3(0.0f, 0.0f, 1.0f));
-        world = glm::rotate(world, rot.y, glm::vec3(0.0f, 1.0f, 0.0f));
-        world = glm::rotate(world, rot.x, glm::vec3(1.0f, 0.0f, 0.0f));
+    // bind descriptor sets for instanced draw
+    VkDescriptorSet set = Graphics::InstanceDescriptorSets[Graphics::SwapChain->get_frame_index()];
+    std::vector<VkDescriptorSet> sets = {
+        set,
+        Graphics::SamplerDescriptorSets[Graphics::SwapChain->get_frame_index()]
+    };
+    vkCmdBindDescriptorSets(
+        command_buffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        Graphics::GraphicsPipeline->get_layout(),
+        0,
+        static_cast<uint32_t>(sets.size()),
+        sets.data(),
+        0,
+        nullptr
+    );
 
-        // copy uniform data
-        UniformBufferObject ubo = {
-            .world = world
-        };
-        VkDescriptorSet set = Graphics::RingBuffer->CopyToNextRegion(&ubo, sizeof(ubo));
-        std::vector<VkDescriptorSet> sets = {
-            set,
-            Graphics::SamplerDescriptorSets[Graphics::SwapChain->get_frame_index()]
-        };
-        vkCmdBindDescriptorSets(
-            command_buffer,
-            VK_PIPELINE_BIND_POINT_GRAPHICS,
-            Graphics::GraphicsPipeline->get_layout(),
-            0,
-            static_cast<uint32_t>(sets.size()),
-            sets.data(),
-            0,
-            nullptr
-        );
-
-        // draw boid box
-        vkCmdDrawIndexed(
-            command_buffer,
-            mesh->get_num_indices(),
-            1,
-            0,
-            0,
-            0
-        );
-    }
+    // do actual instanced draw!
+    vkCmdDrawIndexed(
+        command_buffer,
+        mesh->get_num_indices(),
+        boid_system.boid_count,
+        0,
+        0,
+        0
+    );
 }

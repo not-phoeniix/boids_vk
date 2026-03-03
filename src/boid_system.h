@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <unordered_set>
 #include "thread_pool.h"
+#include "render_thing/render_thing.h"
 
 using BoidChunk = std::unordered_set<uint32_t>;
 
@@ -24,4 +25,4 @@ struct BoidSystem {
 
 void boid_system_populate(BoidSystem* system, uint32_t count, float bounds_size);
 void boid_system_destroy(BoidSystem* system);
-void boid_system_update(BoidSystem* system, float dt);
+void boid_system_update(BoidSystem* system, std::shared_ptr<rt::Buffer> instance_data_buffer, float dt);
