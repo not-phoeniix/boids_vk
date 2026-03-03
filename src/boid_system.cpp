@@ -5,6 +5,8 @@
 #include <iostream>
 #include <mutex>
 #include <thread>
+#include <cmath>
+#include <algorithm>
 #include "data_structs.h"
 
 constexpr uint32_t CHUNKS_PER_AXIS = 6;
@@ -50,6 +52,13 @@ static glm::vec3 get_rot_look_at(const glm::vec3& source, const glm::vec3& targe
     float yaw = atan2f(delta.x, delta.z);
     float pitch = asinf(-delta.y);
     return glm::vec3(pitch, yaw, 0);
+}
+
+static glm::vec3 get_forward(float pitch, float yaw) {
+    float x = std::cosf(pitch) * std::sinf(yaw);
+    float y = std::sinf(pitch);
+    float z = std::cosf(pitch) * std::cosf(yaw);
+    return glm::vec3(x, y, z);
 }
 
 #pragma region // behaviors
@@ -99,28 +108,13 @@ static glm::vec3 wander(BoidSystem* system, uint32_t boid) {
     };
     system->boid_wander_angles[boid] += angle_offset;
 
-    //! maybe check back here for optimizations! calculating a rotation
-    //!  matrix for every boid every frame can't be efficient <//3
-    glm::mat4 rot_mat = glm::rotate(
-        glm::mat4(1.0f),
-        system->boid_wander_angles[boid].z,
-        glm::vec3(0.0f, 0.0f, 1.0f)
-    );
-    rot_mat = glm::rotate(
-        rot_mat,
-        system->boid_wander_angles[boid].y,
-        glm::vec3(0.0f, 1.0f, 0.0f)
-    );
-    rot_mat = glm::rotate(
-        rot_mat,
+    glm::vec3 forward = get_forward(
         system->boid_wander_angles[boid].x,
-        glm::vec3(1.0f, 0.0f, 0.0f)
+        system->boid_wander_angles[boid].y
     );
-
-    glm::vec4 forward = rot_mat * glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
 
     glm::vec3 future_pos = system->boid_positions[boid] + (system->boid_velocities[boid] * WANDER_TIME);
-    glm::vec3 target_pos = future_pos + (glm::vec3(forward) * WANDER_RADIUS);
+    glm::vec3 target_pos = future_pos + (forward * WANDER_RADIUS);
 
     return seek(target_pos, system, boid);
 }
@@ -167,38 +161,30 @@ static void init_boid(BoidSystem* system, uint32_t boid) {
 }
 
 void boid_system_populate(BoidSystem* system, uint32_t count, float bounds_size) {
-    system->boid_positions = new glm::vec3[count];
-    system->boid_velocities = new glm::vec3[count];
-    system->boid_wander_angles = new glm::vec3[count];
-    system->boid_contained_chunk_index = new uint32_t[count];
-    system->boid_max_speeds = new float[count];
+    system->boid_positions.resize(count);
+    system->boid_velocities.resize(count);
+    system->boid_wander_angles.resize(count);
+    system->boid_contained_chunk_index.resize(count);
+    system->boid_max_speeds.resize(count);
     system->boid_count = count;
-    system->chunks = new BoidChunk[CHUNKS_PER_AXIS * CHUNKS_PER_AXIS * CHUNKS_PER_AXIS];
+    system->chunks.resize(CHUNKS_PER_AXIS * CHUNKS_PER_AXIS * CHUNKS_PER_AXIS);
     system->bounds_size = bounds_size;
+    system->thread_pool = std::make_shared<ThreadPool>();
 
     for (uint32_t i = 0; i < count; i++) {
         init_boid(system, i);
     }
-
-    system->thread_pool = new ThreadPool();
 }
 
 void boid_system_destroy(BoidSystem* system) {
-    delete[] system->boid_positions;
-    delete[] system->boid_velocities;
-    delete[] system->boid_wander_angles;
-    delete[] system->boid_contained_chunk_index;
-    delete[] system->boid_max_speeds;
-    delete[] system->chunks;
-    delete system->thread_pool;
+    system->boid_positions.clear();
+    system->boid_velocities.clear();
+    system->boid_wander_angles.clear();
+    system->boid_contained_chunk_index.clear();
+    system->boid_max_speeds.clear();
+    system->chunks.clear();
+    system->thread_pool.reset();
 
-    system->boid_positions = nullptr;
-    system->boid_velocities = nullptr;
-    system->boid_wander_angles = nullptr;
-    system->boid_contained_chunk_index = nullptr;
-    system->boid_max_speeds = nullptr;
-    system->boid_count = 0;
-    system->chunks = nullptr;
     system->bounds_size = 0.0f;
     system->thread_pool = nullptr;
 }

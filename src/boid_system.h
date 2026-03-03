@@ -7,20 +7,21 @@
 #include <unordered_set>
 #include "thread_pool.h"
 #include "render_thing/render_thing.h"
+#include <memory>
 
 using BoidChunk = std::unordered_set<uint32_t>;
 
 struct BoidSystem {
-    glm::vec3* boid_positions;
-    glm::vec3* boid_velocities;
-    glm::vec3* boid_wander_angles;
-    uint32_t* boid_contained_chunk_index;
-    float* boid_max_speeds;
+    std::vector<glm::vec3> boid_positions;
+    std::vector<glm::vec3> boid_velocities;
+    std::vector<glm::vec3> boid_wander_angles;
+    std::vector<uint32_t> boid_contained_chunk_index;
+    std::vector<float> boid_max_speeds;
     uint32_t boid_count;
 
-    BoidChunk* chunks;
+    std::vector<BoidChunk> chunks;
     float bounds_size;
-    ThreadPool* thread_pool;
+    std::shared_ptr<ThreadPool> thread_pool;
 };
 
 void boid_system_populate(BoidSystem* system, uint32_t count, float bounds_size);
