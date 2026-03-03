@@ -28,7 +28,17 @@ constexpr float MAX_SPEED_MAX = 50.0f;
 static std::mutex mtx;
 
 static float randf_range(float min, float max) {
-    return min + ((max - min) * ((rand() / (float)RAND_MAX)));
+    static uint32_t state = static_cast<uint32_t>(time(NULL));
+
+    //   https://en.wikipedia.org/wiki/Xorshift
+    uint32_t x = state;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+
+    state = x;
+
+    return min + ((max - min) * ((float)x / (float)UINT32_MAX));
 }
 
 static glm::vec3 get_rot_look_at(const glm::vec3& source, const glm::vec3& target) {

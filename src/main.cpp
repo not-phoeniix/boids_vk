@@ -30,9 +30,6 @@ static void run() {
     float dt_sum = 0;
     uint32_t frame_counter = 0;
 
-    // seed random with current time
-    srand((unsigned int)time(NULL));
-
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
