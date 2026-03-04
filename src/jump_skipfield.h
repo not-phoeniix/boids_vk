@@ -116,6 +116,9 @@ class JumpSkipfield {
         }
 
         uint32_t block_size = skipfield[block_start_addr] + value_right + 1;
+        if (block_size > size) {
+            std::cout << "TOO BIG! TOOBIG!REMOVE??\n";
+        }
 
         RecalculateBlock(block_start_addr, block_size);
 
@@ -148,13 +151,23 @@ class JumpSkipfield {
 
         // create left block
         if (value_left != 0) {
-            uint32_t left_block_size = address - block_start - 1;
+            uint32_t left_block_size = address == block_start
+                                           ? 0
+                                           : address - block_start - 1;
+            if (left_block_size > size) {
+                std::cout << "TOO BIG! TOOBIGLEFTTTT!\n";
+            }
+
             RecalculateBlock(block_start, left_block_size);
         }
 
         // create right block
         if (value_right != 0) {
             uint32_t right_block_size = block_end - address;
+            if (right_block_size > size) {
+                std::cout << "TOO BIG! TOOBIGRIGHTTTTTTTTT!\n";
+            }
+
             RecalculateBlock(address + 1, right_block_size);
         }
 
