@@ -8,24 +8,7 @@
 #include <cmath>
 #include <algorithm>
 #include "data_structs.h"
-
-constexpr uint32_t CHUNKS_PER_AXIS = 6;
-
-constexpr float ADJACENT_SEARCH_RADIUS = 20.0f;
-constexpr float SEPARATE_STRENGTH = 0.4f;
-constexpr float COHESION_STRENGTH = 3.0f;
-constexpr float ALIGNMENT_STRENGTH = 3.0f;
-
-constexpr float WANDER_STRENGTH = 1.0f;
-constexpr float WANDER_TIME = 0.4f;
-constexpr float WANDER_RADIUS = 50.0f;
-
-constexpr float LIMIT_STRENGTH = 4.0f;
-
-constexpr float FRICTION_COEFF = 2.0f;
-
-constexpr float MAX_SPEED_MIN = 10.0f;
-constexpr float MAX_SPEED_MAX = 50.0f;
+#include "program_params.h"
 
 static std::mutex mtx;
 
@@ -113,8 +96,10 @@ static glm::vec3 wander(BoidSystem* system, uint32_t boid) {
         system->boid_wander_angles[boid].y
     );
 
-    glm::vec3 future_pos = system->boid_positions[boid] + (system->boid_velocities[boid] * WANDER_TIME);
-    glm::vec3 target_pos = future_pos + (forward * WANDER_RADIUS);
+    glm::vec3 future_pos = system->boid_positions[boid] +
+                           (system->boid_velocities[boid] *
+                            ProgramParams::BOID_WANDER_TIME);
+    glm::vec3 target_pos = future_pos + (forward * ProgramParams::BOID_WANDER_RADIUS);
 
     return seek(target_pos, system, boid);
 }
@@ -123,7 +108,7 @@ static glm::vec3 wander(BoidSystem* system, uint32_t boid) {
 
 static uint32_t get_chunk_index(BoidSystem* system, uint32_t boid) {
     // don't need separate axes since we're always a big cube
-    float chunk_width = system->bounds_size / (float)CHUNKS_PER_AXIS;
+    float chunk_width = system->bounds_size / (float)ProgramParams::CHUNKS_PER_AXIS;
     float min_coord = system->bounds_size / 2.0f;
 
     // use truncation and some position math to get indices
@@ -136,10 +121,12 @@ static uint32_t get_chunk_index(BoidSystem* system, uint32_t boid) {
     indices = glm::clamp(
         indices,
         glm::u32vec3(0),
-        glm::u32vec3(CHUNKS_PER_AXIS - 1)
+        glm::u32vec3(ProgramParams::CHUNKS_PER_AXIS - 1)
     );
 
-    return indices.z * CHUNKS_PER_AXIS * CHUNKS_PER_AXIS + indices.y * CHUNKS_PER_AXIS + indices.x;
+    return indices.z * ProgramParams::CHUNKS_PER_AXIS * ProgramParams::CHUNKS_PER_AXIS +
+           indices.y * ProgramParams::CHUNKS_PER_AXIS +
+           indices.x;
 }
 
 static void init_boid(BoidSystem* system, uint32_t boid) {
@@ -157,7 +144,10 @@ static void init_boid(BoidSystem* system, uint32_t boid) {
 
     system->boid_wander_angles[boid] = {0.0f, 0.0f, 0.0f};
     system->boid_contained_chunk_index[boid] = get_chunk_index(system, boid);
-    system->boid_max_speeds[boid] = randf_range(MAX_SPEED_MIN, MAX_SPEED_MAX);
+    system->boid_max_speeds[boid] = randf_range(
+        ProgramParams::BOID_MAX_SPEED_MIN,
+        ProgramParams::BOID_MAX_SPEED_MAX
+    );
 }
 
 void boid_system_populate(BoidSystem* system, uint32_t count, float bounds_size) {
@@ -167,7 +157,11 @@ void boid_system_populate(BoidSystem* system, uint32_t count, float bounds_size)
     system->boid_contained_chunk_index.resize(count);
     system->boid_max_speeds.resize(count);
     system->boid_count = count;
-    system->chunks.resize(CHUNKS_PER_AXIS * CHUNKS_PER_AXIS * CHUNKS_PER_AXIS);
+    system->chunks.resize(
+        ProgramParams::CHUNKS_PER_AXIS *
+        ProgramParams::CHUNKS_PER_AXIS *
+        ProgramParams::CHUNKS_PER_AXIS
+    );
     system->bounds_size = bounds_size;
     system->thread_pool = std::make_shared<ThreadPool>();
 
@@ -219,9 +213,9 @@ static void update_boid(
         float d_sqr = glm::length2(diff);
 
         // ensure we're in range and also not at the same position
-        if (d_sqr > FLT_EPSILON && d_sqr <= ADJACENT_SEARCH_RADIUS * ADJACENT_SEARCH_RADIUS) {
+        if (d_sqr > FLT_EPSILON && d_sqr <= ProgramParams::BOID_ADJACENT_SEARCH_RADIUS * ProgramParams::BOID_ADJACENT_SEARCH_RADIUS) {
             // ~~~ separation, flee from neighbors in range ~~~
-            total_steer += flee(system->boid_positions[b2], system, b) * SEPARATE_STRENGTH;
+            total_steer += flee(system->boid_positions[b2], system, b) * ProgramParams::BOID_SEPARATE_STRENGTH;
 
             // ~~~ accumulate average positions and directions ~~~
 
@@ -244,30 +238,32 @@ static void update_boid(
 
         // ~~~ cohesion, seek avg ~~~
         avg_position *= 1.0f / denominator;
-        total_steer += (seek(avg_position, system, b) * COHESION_STRENGTH) * static_cast<float>(num_adjacent != 0);
+        total_steer += (seek(avg_position, system, b) * ProgramParams::BOID_COHESION_STRENGTH) *
+                       static_cast<float>(num_adjacent != 0);
 
         // ~~~ alignment, move towards desired direction ~~~
         avg_direction *= (1.0f / denominator) * system->boid_max_speeds[b];
         glm::vec3 desired_dir = avg_direction - system->boid_velocities[b];
-        total_steer += (desired_dir * ALIGNMENT_STRENGTH) * static_cast<float>(num_adjacent != 0);
+        total_steer += (desired_dir * ProgramParams::BOID_ALIGNMENT_STRENGTH) *
+                       static_cast<float>(num_adjacent != 0);
     }
 
     // ~~~ wander! ~~~
-    total_steer += wander(system, b) * WANDER_STRENGTH;
+    total_steer += wander(system, b) * ProgramParams::BOID_WANDER_STRENGTH;
 
     // ~~~ seek center ~~~
     //   so we don't run away forever (only when we're past the threshold)
     float d_sqr = glm::length2(system->boid_positions[b]);
     total_steer += seek(glm::vec3(0.0f), system, b) *
                    static_cast<float>(d_sqr >= (system->bounds_size * system->bounds_size)) *
-                   LIMIT_STRENGTH;
+                   ProgramParams::BOID_BOUND_LIMIT_STRENGTH;
 
     // ~~~ friction !! ~~~
 
     float vel_len = 0.0f;
     glm::vec3 dir = safe_norm_len(system->boid_velocities[b], &vel_len);
 
-    total_steer += dir * (FRICTION_COEFF * -1.0f);
+    total_steer += dir * (ProgramParams::BOID_FRICTION_COEFF * -1.0f);
 
     // ~~~ cap velocity ~~~
 
