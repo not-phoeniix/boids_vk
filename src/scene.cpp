@@ -118,7 +118,7 @@ Scene::Scene() {
     ApiContext a_ctx = Graphics::Manager->get_api_context();
     GraphicsContext g_ctx = Graphics::Manager->get_graphics_context();
 
-    mesh = load_mesh("res/cube.obj", g_ctx, a_ctx);
+    mesh = load_mesh("res/boid.obj", g_ctx, a_ctx);
 
     camera = std::make_unique<Camera>(
         glm::vec3(0.0f, 50.0, -200.0f),
@@ -128,9 +128,6 @@ Scene::Scene() {
         1000.0f
     );
     camera->LookAt(glm::vec3(0.0f));
-
-    image = load_image("res/dogwho_is_also___rendered.png", g_ctx, a_ctx);
-    Graphics::write_sampler_image(image->get_view());
 
     boid_system_populate(
         &boid_system,
@@ -261,10 +258,7 @@ void Scene::Draw() {
 
     // bind descriptor sets for instanced draw
     VkDescriptorSet set = Graphics::InstanceDescriptorSets[Graphics::SwapChain->get_frame_index()];
-    std::vector<VkDescriptorSet> sets = {
-        set,
-        Graphics::SamplerDescriptorSets[Graphics::SwapChain->get_frame_index()]
-    };
+    std::vector<VkDescriptorSet> sets = {set};
     vkCmdBindDescriptorSets(
         command_buffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,

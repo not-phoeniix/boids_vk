@@ -16,13 +16,6 @@ namespace Graphics {
     inline std::shared_ptr<rt::DescriptorSetLayout> InstanceDataBufferLayout = nullptr;
     inline std::vector<VkDescriptorSet> InstanceDescriptorSets;
 
-    inline std::shared_ptr<rt::Sampler> Sampler = nullptr;
-    inline std::shared_ptr<rt::DescriptorPool> SamplerDescriptorPool = nullptr;
-    inline std::shared_ptr<rt::DescriptorSetLayout> SamplerLayout = nullptr;
-    inline std::vector<VkDescriptorSet> SamplerDescriptorSets;
-
     void init(GLFWwindow* window);
     void deinit();
-
-    void write_sampler_image(VkImageView image);
 }

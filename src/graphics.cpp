@@ -179,91 +179,6 @@ namespace Graphics {
         );
     }
 
-    static void create_sampler() {
-        // ~~~ create descriptor pool ~~~
-
-        VkDescriptorPoolSize pool_size = {
-            .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .descriptorCount = FRAMES_IN_FLIGHT
-        };
-        rt::DescriptorPoolCreateInfo pool_info = {
-            .max_sets = FRAMES_IN_FLIGHT,
-            .flags = 0,
-            .pool_sizes = &pool_size,
-            .pool_size_count = 1
-        };
-        SamplerDescriptorPool = std::make_unique<rt::DescriptorPool>(
-            pool_info,
-            ApiCluster->get_api_context()
-        );
-        destroy_queue.QueueDelete([] { SamplerDescriptorPool.reset(); });
-
-        // ~~~ create sampler ~~~
-
-        rt::SamplerCreateInfo sampler_create_info = {
-            .min_filter = VK_FILTER_LINEAR,
-            .mag_filter = VK_FILTER_LINEAR,
-            .address_u = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-            .address_v = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-            .address_w = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-        };
-
-        Sampler = std::make_shared<rt::Sampler>(
-            sampler_create_info,
-            ApiCluster->get_api_context()
-        );
-        destroy_queue.QueueDelete([] { Sampler.reset(); });
-
-        // ~~~ create descriptor set layout ~~~
-
-        VkSampler sampler = Sampler->get_sampler();
-        std::vector<VkDescriptorSetLayoutBinding> bindings = {
-            (VkDescriptorSetLayoutBinding) {
-                .binding = 0,
-                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                .descriptorCount = 1,
-                .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-                .pImmutableSamplers = &sampler
-            }
-        };
-
-        rt::DescriptorSetLayoutCreateInfo create_info = {
-            .bindings = bindings.data(),
-            .binding_count = static_cast<uint32_t>(bindings.size()),
-        };
-
-        SamplerLayout = std::make_shared<rt::DescriptorSetLayout>(
-            create_info,
-            ApiCluster->get_api_context()
-        );
-        destroy_queue.QueueDelete([] { SamplerLayout.reset(); });
-
-        // ~~~ allocate descriptor sets for sampler ~~~
-
-        SamplerDescriptorSets.resize(FRAMES_IN_FLIGHT);
-
-        // vector full of identical layouts
-        std::vector<VkDescriptorSetLayout> set_layouts(
-            FRAMES_IN_FLIGHT,
-            SamplerLayout->get_layout()
-        );
-        VkDescriptorSetAllocateInfo alloc_info = {
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-            .descriptorPool = SamplerDescriptorPool->get_pool(),
-            .descriptorSetCount = FRAMES_IN_FLIGHT,
-            .pSetLayouts = set_layouts.data()
-        };
-
-        VkResult result = vkAllocateDescriptorSets(
-            ApiCluster->get_device(),
-            &alloc_info,
-            SamplerDescriptorSets.data()
-        );
-        if (result != VK_SUCCESS) {
-            throw std::runtime_error("Failed to allocate sampler descriptor set!");
-        }
-    }
-
     static void create_graphics_manager(GLFWwindow* window, uint32_t width, uint32_t height) {
         // === PIPELINE STUFF =============================
 
@@ -415,7 +330,6 @@ namespace Graphics {
 
         std::vector<VkDescriptorSetLayout> layouts = {
             InstanceDataBufferLayout->get_layout(),
-            SamplerLayout->get_layout()
         };
         VkPipelineLayoutCreateInfo layout_create_info = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -480,7 +394,6 @@ namespace Graphics {
 
         create_api_cluster(window);
         create_instance_data_buffers();
-        create_sampler();
         create_graphics_manager(
             window,
             static_cast<uint32_t>(width),
@@ -490,36 +403,5 @@ namespace Graphics {
 
     void deinit() {
         destroy_queue.Flush();
-    }
-
-    void write_sampler_image(VkImageView image) {
-        VkDescriptorImageInfo image_info = {
-            .sampler = Sampler->get_sampler(),
-            .imageView = image,
-            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        };
-
-        std::vector<VkWriteDescriptorSet> writes(FRAMES_IN_FLIGHT);
-        for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++) {
-            writes[i] = (VkWriteDescriptorSet) {
-                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstSet = SamplerDescriptorSets[i],
-                .dstBinding = 0,
-                .dstArrayElement = 0,
-                .descriptorCount = 1,
-                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                .pImageInfo = &image_info,
-                .pBufferInfo = nullptr,
-                .pTexelBufferView = nullptr
-            };
-        }
-
-        vkUpdateDescriptorSets(
-            ApiCluster->get_device(),
-            static_cast<uint32_t>(writes.size()),
-            writes.data(),
-            0,
-            nullptr
-        );
     }
 }
