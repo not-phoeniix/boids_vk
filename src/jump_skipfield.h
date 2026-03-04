@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <cstdint>
+#include <iostream>
 
 // implemented based on PLF library's conceptual overview:
 //   https://www.plflib.org/colony.htm
@@ -17,6 +18,23 @@ class JumpSkipfield {
     uint32_t* skipfield;
     uint32_t* free_address_stack;
     uint32_t stack_count;
+
+    uint32_t get_block_start_addr(uint32_t address) {
+        if (skipfield[address] == 0) return address;
+
+        uint32_t value_left = address == 0 ? 0 : skipfield[address - 1];
+        return value_left == 0 ? address : address - skipfield[address] + 1;
+    }
+
+    uint32_t get_block_size(uint32_t address) {
+        return skipfield[get_block_start_addr(address)];
+    }
+
+    void RecalculateBlock(uint32_t address_start, uint32_t size) {
+        for (uint32_t i = 1; i <= size; i++) {
+            skipfield[address_start + i - 1] = i == 1 ? size : i;
+        }
+    }
 
    public:
     JumpSkipfield(size_t size) : size(size) {
@@ -62,9 +80,23 @@ class JumpSkipfield {
         }
     }
 
+    void print_skipfield() {
+        for (size_t i = 0; i < size; i++) {
+            std::cout << skipfield[i] << " ";
+        }
+        std::cout << "\n";
+    }
+
+    void print_data() {
+        for (size_t i = 0; i < size; i++) {
+            std::cout << data[i] << " ";
+        }
+        std::cout << "\n";
+    }
+
     void remove_at(uint32_t address) {
-        // dont worry about removing already removed addresses
-        if (skipfield[address] != 0) return;
+        // don't remove invalid or already-removed addresses
+        if (address >= size || skipfield[address] != 0) return;
 
         // we'll be merging existing blocks...
         // remove here
@@ -78,18 +110,14 @@ class JumpSkipfield {
                                    ? 0
                                    : skipfield[address + 1];
 
-        // place new block size at start of block
-        //   (will make a new block automatically)
-        uint32_t block_size = (value_left + value_right + 1);
-        skipfield[address - value_left] = block_size;
-
-        // and then iterate across the block size updating distance
-        //   to the start of the block from our block's left edge
-        //
-        // (just won't run for blocks of size 1)
-        for (uint32_t i = 2; i <= block_size; i++) {
-            skipfield[address - value_left + 1] = i;
+        uint32_t block_start_addr = address;
+        if (value_left != 0) {
+            block_start_addr = address == 0 ? 0 : get_block_start_addr(address - 1);
         }
+
+        uint32_t block_size = skipfield[block_start_addr] + value_right + 1;
+
+        RecalculateBlock(block_start_addr, block_size);
 
         // push newly freed address onto the stack
         free_address_stack[stack_count++] = address;
@@ -110,26 +138,28 @@ class JumpSkipfield {
 
         // get adjacent values (use zero if we're on an edge)
         uint32_t value_left = address == 0 ? 0 : skipfield[address - 1];
-        // uint32_t value_right = address == static_cast<uint32_t>(size) - 1
-        //                            ? 0
-        //                            : skipfield[address + 1];
+        uint32_t value_right = address == static_cast<uint32_t>(size) - 1
+                                   ? 0
+                                   : skipfield[address + 1];
 
-        uint32_t prev_block_size = skipfield[address - value_left];
+        uint32_t block_start = get_block_start_addr(address);
+        uint32_t block_size = skipfield[block_start];
+        uint32_t block_end = block_start + block_size - 1;
 
         // create left block
-        uint32_t left_block_size = value_left;
-        skipfield[address - value_left] = left_block_size;
+        if (value_left != 0) {
+            uint32_t left_block_size = address - block_start - 1;
+            RecalculateBlock(block_start, left_block_size);
+        }
 
         // create right block
-        uint32_t right_block_size = prev_block_size - left_block_size - 1;
-        for (uint32_t i = 1; i <= right_block_size; i++) {
-            // iterate resizing distances starting at address plus one
-            //   (doesn't run for zero-sized right blocks)
-            skipfield[address + i] = i == 1 ? right_block_size : i;
+        if (value_right != 0) {
+            uint32_t right_block_size = block_end - address;
+            RecalculateBlock(address + 1, right_block_size);
         }
 
         // finally, set the skip value for current address
-        //   as taken and save output address
+        //   as occupied (0) and save output address
         skipfield[address] = 0;
         data[address] = element;
         if (out_address != nullptr) {
