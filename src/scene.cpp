@@ -169,7 +169,11 @@ void Scene::Update(float dt) {
         0.0f
     );
     if (Input::get_lmb_down()) {
-        camera->RotateBy(look);
+        glm::vec3 rot = camera->get_rotation();
+        rot += look;
+        if (rot.x > M_PI_2 - 0.01f) rot.x = M_PI_2 - 0.01f;
+        if (rot.x < -M_PI_2 + 0.01f) rot.x = -M_PI_2 + 0.01f;
+        camera->set_rotation(rot);
     }
 
     // update boid system
