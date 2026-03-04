@@ -15,7 +15,7 @@ namespace ProgramParams {
     constexpr float CAM_SPRINT_SCALAR = 4.0f;
     constexpr float CAM_LOOK_SPEED = 0.007f;
 
-    constexpr uint32_t CHUNKS_PER_AXIS = 10;
+    constexpr uint32_t CHUNKS_PER_AXIS = 8;
 
     constexpr uint32_t BOID_COUNT = 10000;
     constexpr float BOID_SPAWN_BOX_SIZE = 300.0f;

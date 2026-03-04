@@ -26,26 +26,6 @@ static float randf_range(float min, float max) {
     return min + ((max - min) * ((float)x / (float)UINT32_MAX));
 }
 
-static glm::vec3 get_rot_look_at(const glm::vec3& source, const glm::vec3& target) {
-    glm::vec3 delta = target - source;
-    if (glm::length2(delta) > FLT_EPSILON) {
-        delta = glm::normalize(delta);
-    }
-
-    float yaw = atan2f(delta.x, delta.z);
-    float pitch = asinf(-delta.y);
-    return glm::vec3(pitch, yaw, 0);
-}
-
-static glm::vec3 get_forward(float pitch, float yaw) {
-    float x = std::cosf(pitch) * std::sinf(yaw);
-    float y = std::sinf(pitch);
-    float z = std::cosf(pitch) * std::cosf(yaw);
-    return glm::vec3(x, y, z);
-}
-
-#pragma region // behaviors
-
 // a hopefully more cache-friendly safe normalization method?
 static glm::vec3 safe_norm(const glm::vec3& vec) {
     glm::vec3 ret = vec;
@@ -71,6 +51,22 @@ static glm::vec3 safe_norm_len(const glm::vec3& vec, float* out_initial_len) {
     return ret;
 }
 
+static glm::vec3 get_rot_look_at(const glm::vec3& source, const glm::vec3& target) {
+    glm::vec3 delta = safe_norm(target - source);
+    float yaw = atan2f(delta.x, delta.z);
+    float pitch = asinf(-delta.y);
+    return glm::vec3(pitch, yaw, 0);
+}
+
+static glm::vec3 get_forward(float pitch, float yaw) {
+    float x = std::cosf(pitch) * std::sinf(yaw);
+    float y = std::sinf(pitch);
+    float z = std::cosf(pitch) * std::cosf(yaw);
+    return glm::vec3(x, y, z);
+}
+
+#pragma region // behaviors
+
 static glm::vec3 seek(const glm::vec3& target_pos, BoidSystem* system, uint32_t boid) {
     glm::vec3 dir = safe_norm(target_pos - system->boid_positions[boid]);
     glm::vec3 desired_velocity = dir * system->boid_max_speeds[boid];
@@ -89,12 +85,11 @@ static glm::vec3 wander(BoidSystem* system, uint32_t boid) {
         randf_range(-M_PI / 15.0f, M_PI / 15.0f),
         randf_range(-M_PI / 15.0f, M_PI / 15.0f)
     };
-    system->boid_wander_angles[boid] += angle_offset;
+    glm::vec3 wander_angles = system->boid_wander_angles[boid];
+    wander_angles += angle_offset;
+    system->boid_wander_angles[boid] = wander_angles;
 
-    glm::vec3 forward = get_forward(
-        system->boid_wander_angles[boid].x,
-        system->boid_wander_angles[boid].y
-    );
+    glm::vec3 forward = get_forward(wander_angles.x, wander_angles.y);
 
     glm::vec3 future_pos = system->boid_positions[boid] +
                            (system->boid_velocities[boid] *
@@ -111,11 +106,13 @@ static uint32_t get_chunk_index(BoidSystem* system, uint32_t boid) {
     float chunk_width = system->bounds_size / (float)ProgramParams::CHUNKS_PER_AXIS;
     float min_coord = system->bounds_size / 2.0f;
 
+    glm::vec3 current_pos = system->boid_positions[boid];
+
     // use truncation and some position math to get indices
     glm::u32vec3 indices = {
-        (uint32_t)((system->boid_positions[boid].x + min_coord) / chunk_width),
-        (uint32_t)((system->boid_positions[boid].y + min_coord) / chunk_width),
-        (uint32_t)((system->boid_positions[boid].z + min_coord) / chunk_width)
+        (uint32_t)((current_pos.x + min_coord) / chunk_width),
+        (uint32_t)((current_pos.y + min_coord) / chunk_width),
+        (uint32_t)((current_pos.z + min_coord) / chunk_width)
     };
 
     indices = glm::clamp(
@@ -212,20 +209,16 @@ static void update_boid(
         glm::vec3 diff = system->boid_positions[b] - system->boid_positions[b2];
         float d_sqr = glm::length2(diff);
 
-        // ensure we're in range and also not at the same position
-        if (d_sqr > FLT_EPSILON && d_sqr <= ProgramParams::BOID_ADJACENT_SEARCH_RADIUS * ProgramParams::BOID_ADJACENT_SEARCH_RADIUS) {
+        bool in_range = d_sqr > FLT_EPSILON && d_sqr <= ProgramParams::BOID_ADJACENT_SEARCH_RADIUS * ProgramParams::BOID_ADJACENT_SEARCH_RADIUS;
+        if (in_range) {
             // ~~~ separation, flee from neighbors in range ~~~
+
             total_steer += flee(system->boid_positions[b2], system, b) * ProgramParams::BOID_SEPARATE_STRENGTH;
 
-            // ~~~ accumulate average positions and directions ~~~
+            // ~~~ accumulate averages ~~~
 
             avg_position += system->boid_positions[b2];
-
-            glm::vec3 dir = system->boid_velocities[b2];
-            float len = glm::length(dir);
-            dir *= (len > FLT_EPSILON) ? (1.0f / len) : 1.0f;
-            avg_direction += dir;
-
+            avg_direction += safe_norm(system->boid_velocities[b2]);
             num_adjacent++;
         }
     }
