@@ -9,7 +9,6 @@
 #include "thread_pool.h"
 #include "graphics.h"
 #include "program_params.h"
-#include "jump_skipfield.h"
 
 static void run() {
     glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
@@ -76,52 +75,12 @@ static void run() {
 }
 
 int main() {
-    // try {
-    //     run();
-    // } catch (const std::exception& e) {
-    //     std::cerr << e.what() << std::endl;
-    //     return EXIT_FAILURE;
-    // }
-
-    JumpSkipfield<uint32_t> skipfield(20);
-    std::cout << "printing empty...\n";
-    // skipfield.print_skipfield();
-    // skipfield.print_data();
-    std::cout << "\n";
-
-    std::cout << "adding...\n";
-    for (uint32_t i = 0; i < 10; i++) {
-        skipfield.add(i);
+    try {
+        run();
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return EXIT_FAILURE;
     }
-    std::cout << "\n";
-
-    std::cout << "printing post add...\n";
-    // skipfield.print_skipfield();
-    // skipfield.print_data();
-    std::cout << "\n";
-
-    std::cout << "iterating...\n";
-    skipfield.iterate([](const uint32_t* e, uint32_t a) {
-        std::cout << *e << "\n";
-    });
-
-    std::cout << "removing some...\n";
-    for (uint32_t i = 0; i < 10; i++) {
-        if (i % 2 == 0) {
-            skipfield.remove_at(i);
-        }
-    }
-    std::cout << "\n";
-
-    std::cout << "printing post remove...\n";
-    skipfield.print_skipfield();
-    skipfield.print_data();
-    std::cout << "\n";
-
-    std::cout << "iterating...\n";
-    skipfield.iterate([](const uint32_t* e, uint32_t a) {
-        std::cout << *e << "\n";
-    });
 
     return EXIT_SUCCESS;
 }
