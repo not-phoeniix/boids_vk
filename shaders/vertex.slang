@@ -22,8 +22,7 @@ PSIn main(Vertex vert, uint iid: SV_VulkanInstanceID) {
 
     PSIn output;
     output.position = mul(wvp, float4(vert.position, 1.0f));
-    // TODO: fix world_pos, it's not being calculated correctly somehow
-    output.world_pos = mul(float3x3(world_mat), vert.position);
+    output.world_pos = mul(world_mat, float4(vert.position, 1.0f)).xyz;
     output.normal = normalize(mul(float3x3(world_mat), vert.normal));
     output.uv = vert.uv;
 

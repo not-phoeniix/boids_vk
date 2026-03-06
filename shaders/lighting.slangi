@@ -81,16 +81,15 @@ namespace Lighting {
 
     float3 shade_retro(Light light, SurfaceData surface, float3 camera_pos) {
         float3 color = float3(0.0f);
-        color = shade_retro_point(light, surface, camera_pos);
 
-        // switch (light.type) {
-        //     case LIGHT_TYPE_DIRECTIONAL: 
-        //         color = shade_retro_directional(light, surface, camera_pos);
-        //         break;
-        //     case LIGHT_TYPE_POINT:
-        //         color = shade_retro_point(light, surface, camera_pos);
-        //         break;
-        // }
+        switch (light.type) {
+            case LIGHT_TYPE_DIRECTIONAL: 
+                color = shade_retro_directional(light, surface, camera_pos);
+                break;
+            case LIGHT_TYPE_POINT:
+                color = shade_retro_point(light, surface, camera_pos);
+                break;
+        }
 
         return color;
     }
