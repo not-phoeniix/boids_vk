@@ -6,7 +6,7 @@
 #include "render_thing/glm_settings.h"
 #include <glm/glm.hpp>
 
-constexpr uint32_t MAX_LIGHTS = 256;
+constexpr uint32_t MAX_LIGHTS = 512;
 
 #define LIGHT_TYPE_DIRECTIONAL 0
 #define LIGHT_TYPE_POINT 1

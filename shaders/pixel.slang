@@ -1,7 +1,7 @@
 #include "common_types.slangi"
 #include "lighting.slangi"
 
-#define MAX_LIGHTS 256
+#define MAX_LIGHTS 512
 
 struct PixelPushConstants {
     [[vk_offset(128)]]

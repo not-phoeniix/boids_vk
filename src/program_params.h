@@ -11,11 +11,12 @@ namespace ProgramParams {
     constexpr float FPS_AVG_INTERVAL = 1.0f;
     constexpr float BOID_PERFORMANCE_INTERVAL = 1.0f;
 
-    constexpr float CAM_MOVE_SPEED = 10.0f;
+    constexpr float CAM_MOVE_SPEED = 30.0f;
     constexpr float CAM_SPRINT_SCALAR = 4.0f;
     constexpr float CAM_LOOK_SPEED = 0.007f;
 
     constexpr uint32_t CHUNKS_PER_AXIS = 8;
+    const glm::vec3 AMBIENT_COLOR = glm::vec3(0.005f);
 
     constexpr uint32_t BOID_COUNT = 10000;
     constexpr float BOID_SPAWN_BOX_SIZE = 300.0f;

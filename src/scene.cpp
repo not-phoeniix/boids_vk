@@ -154,41 +154,25 @@ Scene::~Scene() {
 void Scene::RandomizeLights() {
     lights.clear();
 
-    // lights.push_back((Light) {
-    //     .color = glm::vec3(1.0f, 1.0f, 1.0f),
-    //     .direction = glm::normalize(glm::vec3(0.0f, -1.0f, 0.0f)),
-    //     .type = LIGHT_TYPE_DIRECTIONAL,
-    //     .intensity = 0.1f,
-    // });
-
-    // lights.push_back((Light) {
-    //     .color = glm::vec3(1.0f, 0.1f, 0.25f),
-    //     .direction = glm::normalize(glm::vec3(0.0f, -1.0f, 0.0f)),
-    //     .type = LIGHT_TYPE_POINT,
-    //     .intensity = 1.0f,
-    //     .range = 20.0f
-    // });
-
-    // add some randomized point lights
-    for (uint32_t i = 0; i < 100; i++) {
+    for (uint32_t i = 0; i < 200; i++) {
         Light light = {};
         light.type = LIGHT_TYPE_POINT;
         light.position = glm::vec3(
-            Utils::randf_range(-ProgramParams::BOID_SPAWN_BOX_SIZE / 8.0f, ProgramParams::BOID_SPAWN_BOX_SIZE / 8.0f),
-            Utils::randf_range(-ProgramParams::BOID_SPAWN_BOX_SIZE / 8.0f, ProgramParams::BOID_SPAWN_BOX_SIZE / 8.0f),
-            Utils::randf_range(-ProgramParams::BOID_SPAWN_BOX_SIZE / 8.0f, ProgramParams::BOID_SPAWN_BOX_SIZE / 8.0f)
+            Utils::randf_range(-ProgramParams::BOID_SPAWN_BOX_SIZE, ProgramParams::BOID_SPAWN_BOX_SIZE),
+            Utils::randf_range(-ProgramParams::BOID_SPAWN_BOX_SIZE, ProgramParams::BOID_SPAWN_BOX_SIZE),
+            Utils::randf_range(-ProgramParams::BOID_SPAWN_BOX_SIZE, ProgramParams::BOID_SPAWN_BOX_SIZE)
         );
 
         // saturate color
         light.color = {
-            Utils::randf_range(0.0f, 1.0f),
-            Utils::randf_range(0.0f, 1.0f),
-            Utils::randf_range(0.0f, 1.0f)
+            Utils::randf_range(0.0f, 1.2f),
+            Utils::randf_range(0.0f, 0.5f),
+            Utils::randf_range(0.0f, 1.2f)
         };
         light.color = glm::clamp(light.color * light.color, glm::vec3(0.0f), glm::vec3(1.0f));
 
-        light.range = 20.0f;
-        light.intensity = 0.4f;
+        light.range = 100.0f;
+        light.intensity = 0.6f;
         light.direction = glm::vec3(0.0f, -1.0f, 0.0f);
 
         lights.push_back(light);
@@ -312,7 +296,7 @@ void Scene::Draw() {
 
     PixelPushConstants pixel_data = {
         .color = ProgramParams::BOID_COLOR,
-        .ambient = glm::vec3(0.0f),
+        .ambient = ProgramParams::AMBIENT_COLOR,
         .camera_pos = camera->get_position()
     };
     vkCmdPushConstants(
