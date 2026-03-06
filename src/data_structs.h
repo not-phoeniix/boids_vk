@@ -4,8 +4,8 @@
 #include <glm/glm.hpp>
 
 struct CameraPushConstants {
-    alignas(16) glm::mat4x4 view;
-    alignas(16) glm::mat4x4 proj;
+    glm::mat4x4 view;
+    glm::mat4x4 proj;
 };
 
 struct PixelPushConstants {

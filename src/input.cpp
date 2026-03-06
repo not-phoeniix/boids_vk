@@ -4,6 +4,8 @@ namespace Input {
     static bool esc_pressed;
     static bool lmb_down;
     static bool sprinting;
+    static bool light_refresh = false;
+    static bool light_refresh_prev = false;
     static glm::vec3 move_axis;
     static glm::vec2 mouse_pos_prev;
     static glm::vec2 mouse_pos;
@@ -13,6 +15,9 @@ void Input::Update(GLFWwindow* window) {
     esc_pressed = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
     lmb_down = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
     sprinting = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS;
+
+    light_refresh_prev = light_refresh;
+    light_refresh = glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS;
 
     move_axis.x = 0;
     move_axis.y = 0;
@@ -66,6 +71,10 @@ bool Input::get_lmb_down() {
 
 bool Input::get_is_sprinting() {
     return sprinting;
+}
+
+bool Input::get_light_refresh() {
+    return light_refresh && !light_refresh_prev;
 }
 
 glm::vec3 Input::get_move_axis() {

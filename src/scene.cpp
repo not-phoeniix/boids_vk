@@ -10,6 +10,7 @@
 #include "data_structs.h"
 #include "vertex.h"
 #include "program_params.h"
+#include "math_utils.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -17,11 +18,13 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
 
-using namespace rt;
-
 #pragma region // helpers
 
-static std::shared_ptr<Mesh> load_mesh(const std::string& path, const GraphicsContext& g_ctx, const ApiContext& a_ctx) {
+static std::shared_ptr<rt::Mesh> load_mesh(
+    const std::string& path,
+    const rt::GraphicsContext& g_ctx,
+    const rt::ApiContext& a_ctx
+) {
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
 
@@ -64,7 +67,7 @@ static std::shared_ptr<Mesh> load_mesh(const std::string& path, const GraphicsCo
         }
     }
 
-    MeshCreateInfo mesh_info = {
+    rt::MeshCreateInfo mesh_info = {
         .vertices = vertices.data(),
         .vertex_size = sizeof(Vertex),
         .num_vertices = static_cast<uint32_t>(vertices.size()),
@@ -72,9 +75,10 @@ static std::shared_ptr<Mesh> load_mesh(const std::string& path, const GraphicsCo
         .index_size = sizeof(uint32_t),
         .num_indices = static_cast<uint32_t>(indices.size()),
     };
-    return std::make_shared<Mesh>(mesh_info, g_ctx, a_ctx);
+    return std::make_shared<rt::Mesh>(mesh_info, g_ctx, a_ctx);
 }
 
+/*
 static std::shared_ptr<Image> load_image(
     const std::string& path,
     const GraphicsContext& g_ctx,
@@ -111,23 +115,26 @@ static std::shared_ptr<Image> load_image(
 
     return image;
 }
+*/
 
 #pragma endregion
 
 Scene::Scene() {
-    ApiContext a_ctx = Graphics::Manager->get_api_context();
-    GraphicsContext g_ctx = Graphics::Manager->get_graphics_context();
+    rt::ApiContext a_ctx = Graphics::Manager->get_api_context();
+    rt::GraphicsContext g_ctx = Graphics::Manager->get_graphics_context();
 
     mesh = load_mesh("res/boid.obj", g_ctx, a_ctx);
 
     camera = std::make_unique<Camera>(
-        glm::vec3(0.0f, 50.0, -200.0f),
+        glm::vec3(0.0f, 200.0, -300.0f),
         Graphics::Manager->get_aspect(),
         glm::radians(85.0f),
         0.01f,
         1000.0f
     );
     camera->LookAt(glm::vec3(0.0f));
+
+    RandomizeLights();
 
     boid_system_populate(
         &boid_system,
@@ -144,7 +151,56 @@ Scene::~Scene() {
     boid_system_destroy(&boid_system);
 }
 
+void Scene::RandomizeLights() {
+    lights.clear();
+
+    // lights.push_back((Light) {
+    //     .color = glm::vec3(1.0f, 1.0f, 1.0f),
+    //     .direction = glm::normalize(glm::vec3(0.0f, -1.0f, 0.0f)),
+    //     .type = LIGHT_TYPE_DIRECTIONAL,
+    //     .intensity = 0.1f,
+    // });
+
+    // lights.push_back((Light) {
+    //     .color = glm::vec3(1.0f, 0.1f, 0.25f),
+    //     .direction = glm::normalize(glm::vec3(0.0f, -1.0f, 0.0f)),
+    //     .type = LIGHT_TYPE_POINT,
+    //     .intensity = 1.0f,
+    //     .range = 20.0f
+    // });
+
+    // add some randomized point lights
+    for (uint32_t i = 0; i < 100; i++) {
+        Light light = {};
+        light.type = LIGHT_TYPE_POINT;
+        light.position = glm::vec3(
+            Utils::randf_range(-ProgramParams::BOID_SPAWN_BOX_SIZE / 8.0f, ProgramParams::BOID_SPAWN_BOX_SIZE / 8.0f),
+            Utils::randf_range(-ProgramParams::BOID_SPAWN_BOX_SIZE / 8.0f, ProgramParams::BOID_SPAWN_BOX_SIZE / 8.0f),
+            Utils::randf_range(-ProgramParams::BOID_SPAWN_BOX_SIZE / 8.0f, ProgramParams::BOID_SPAWN_BOX_SIZE / 8.0f)
+        );
+
+        // saturate color
+        light.color = {
+            Utils::randf_range(0.0f, 1.0f),
+            Utils::randf_range(0.0f, 1.0f),
+            Utils::randf_range(0.0f, 1.0f)
+        };
+        light.color = glm::clamp(light.color * light.color, glm::vec3(0.0f), glm::vec3(1.0f));
+
+        light.range = 20.0f;
+        light.intensity = 0.4f;
+        light.direction = glm::vec3(0.0f, -1.0f, 0.0f);
+
+        lights.push_back(light);
+    }
+}
+
 void Scene::Update(float dt) {
+    uint32_t frame_index = Graphics::SwapChain->get_frame_index();
+
+    if (Input::get_light_refresh()) {
+        RandomizeLights();
+    }
 
     // update camera <3
 
@@ -178,7 +234,7 @@ void Scene::Update(float dt) {
     float boid_time_start = glfwGetTime();
     boid_system_update(
         &boid_system,
-        Graphics::InstanceDataBuffers[Graphics::SwapChain->get_frame_index()],
+        Graphics::InstanceDataBuffers[frame_index],
         dt
     );
     float boid_time_end = glfwGetTime();
@@ -200,9 +256,23 @@ void Scene::Update(float dt) {
         boid_time_sum = 0;
         frame_counter = 0;
     }
+
+    // ~~~ copy light data ~~~
+
+    Graphics::LightBuffers[frame_index]->CopyFromHost(
+        lights.data(),
+        sizeof(Light) * lights.size()
+    );
+    uint32_t light_count = static_cast<uint32_t>(lights.size());
+    Graphics::LightBuffers[frame_index]->CopyFromHost(
+        &light_count,
+        sizeof(uint32_t),
+        sizeof(Light) * MAX_LIGHTS
+    );
 }
 
 void Scene::Draw() {
+    uint32_t frame_index = Graphics::SwapChain->get_frame_index();
     VkCommandBuffer command_buffer = Graphics::Manager->get_command_buffer();
     camera->set_aspect(Graphics::Manager->get_aspect());
 
@@ -242,7 +312,7 @@ void Scene::Draw() {
 
     PixelPushConstants pixel_data = {
         .color = ProgramParams::BOID_COLOR,
-        .ambient = glm::vec3(0.005f),
+        .ambient = glm::vec3(0.0f),
         .camera_pos = camera->get_position()
     };
     vkCmdPushConstants(
@@ -257,15 +327,13 @@ void Scene::Draw() {
     // ~~~ actual drawing code ~~~
 
     // bind descriptor sets for instanced draw
-    VkDescriptorSet set = Graphics::InstanceDescriptorSets[Graphics::SwapChain->get_frame_index()];
-    std::vector<VkDescriptorSet> sets = {set};
     vkCmdBindDescriptorSets(
         command_buffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         Graphics::GraphicsPipeline->get_layout(),
         0,
-        static_cast<uint32_t>(sets.size()),
-        sets.data(),
+        1,
+        &Graphics::DescriptorSets[frame_index],
         0,
         nullptr
     );

@@ -9,87 +9,35 @@
 #include <algorithm>
 #include "data_structs.h"
 #include "program_params.h"
+#include "math_utils.h"
 
 static std::mutex mtx;
-
-static float randf_range(float min, float max) {
-    static uint32_t state = static_cast<uint32_t>(time(NULL));
-
-    //   https://en.wikipedia.org/wiki/Xorshift
-    uint32_t x = state;
-    x ^= x << 13;
-    x ^= x >> 17;
-    x ^= x << 5;
-
-    state = x;
-
-    return min + ((max - min) * ((float)x / (float)UINT32_MAX));
-}
-
-// a hopefully more cache-friendly safe normalization method?
-static glm::vec3 safe_norm(const glm::vec3& vec) {
-    glm::vec3 ret = vec;
-    float len = glm::length(vec);
-    bool safe = len > FLT_EPSILON;
-
-    // ensures we're never dividing by zero
-    ret *= 1.0f / (len + static_cast<float>(!safe));
-
-    return ret;
-}
-
-// a hopefully more cache-friendly safe normalization method?
-static glm::vec3 safe_norm_len(const glm::vec3& vec, float* out_initial_len) {
-    glm::vec3 ret = vec;
-    float len = glm::length(vec);
-    bool safe = len > FLT_EPSILON;
-
-    // ensures we're never dividing by zero
-    ret *= 1.0f / (len + static_cast<float>(!safe));
-
-    *out_initial_len = len;
-    return ret;
-}
-
-static glm::vec3 get_rot_look_at(const glm::vec3& source, const glm::vec3& target) {
-    glm::vec3 delta = safe_norm(target - source);
-    float yaw = atan2f(delta.x, delta.z);
-    float pitch = asinf(-delta.y);
-    return glm::vec3(pitch, yaw, 0);
-}
-
-static glm::vec3 get_forward(float pitch, float yaw) {
-    float x = std::cosf(pitch) * std::sinf(yaw);
-    float y = std::sinf(pitch);
-    float z = std::cosf(pitch) * std::cosf(yaw);
-    return glm::vec3(x, y, z);
-}
 
 #pragma region // behaviors
 
 static glm::vec3 seek(const glm::vec3& target_pos, BoidSystem* system, uint32_t boid) {
-    glm::vec3 dir = safe_norm(target_pos - system->boid_positions[boid]);
+    glm::vec3 dir = Utils::safe_norm(target_pos - system->boid_positions[boid]);
     glm::vec3 desired_velocity = dir * system->boid_max_speeds[boid];
     return desired_velocity;
 }
 
 static glm::vec3 flee(const glm::vec3& target_pos, BoidSystem* system, uint32_t boid) {
-    glm::vec3 dir = safe_norm(system->boid_positions[boid] - target_pos);
+    glm::vec3 dir = Utils::safe_norm(system->boid_positions[boid] - target_pos);
     glm::vec3 desired_velocity = dir * system->boid_max_speeds[boid];
     return desired_velocity;
 }
 
 static glm::vec3 wander(BoidSystem* system, uint32_t boid) {
     glm::vec3 angle_offset = {
-        randf_range(-M_PI / 15.0f, M_PI / 15.0f),
-        randf_range(-M_PI / 15.0f, M_PI / 15.0f),
-        randf_range(-M_PI / 15.0f, M_PI / 15.0f)
+        Utils::randf_range(-M_PI / 15.0f, M_PI / 15.0f),
+        Utils::randf_range(-M_PI / 15.0f, M_PI / 15.0f),
+        Utils::randf_range(-M_PI / 15.0f, M_PI / 15.0f)
     };
     glm::vec3 wander_angles = system->boid_wander_angles[boid];
     wander_angles += angle_offset;
     system->boid_wander_angles[boid] = wander_angles;
 
-    glm::vec3 forward = get_forward(wander_angles.x, wander_angles.y);
+    glm::vec3 forward = Utils::get_forward(wander_angles.x, wander_angles.y);
 
     glm::vec3 future_pos = system->boid_positions[boid] +
                            (system->boid_velocities[boid] *
@@ -128,20 +76,20 @@ static uint32_t get_chunk_index(BoidSystem* system, uint32_t boid) {
 
 static void init_boid(BoidSystem* system, uint32_t boid) {
     system->boid_positions[boid] = {
-        randf_range(-system->bounds_size / 2.0f, system->bounds_size / 2.0f),
-        randf_range(-system->bounds_size / 2.0f, system->bounds_size / 2.0f),
-        randf_range(-system->bounds_size / 2.0f, system->bounds_size / 2.0f)
+        Utils::randf_range(-system->bounds_size / 2.0f, system->bounds_size / 2.0f),
+        Utils::randf_range(-system->bounds_size / 2.0f, system->bounds_size / 2.0f),
+        Utils::randf_range(-system->bounds_size / 2.0f, system->bounds_size / 2.0f)
     };
 
     system->boid_velocities[boid] = {
-        randf_range(-10.0f, 10.0f),
-        randf_range(-10.0f, 10.0f),
-        randf_range(-10.0f, 10.0f)
+        Utils::randf_range(-10.0f, 10.0f),
+        Utils::randf_range(-10.0f, 10.0f),
+        Utils::randf_range(-10.0f, 10.0f)
     };
 
     system->boid_wander_angles[boid] = {0.0f, 0.0f, 0.0f};
     system->boid_contained_chunk_index[boid] = get_chunk_index(system, boid);
-    system->boid_max_speeds[boid] = randf_range(
+    system->boid_max_speeds[boid] = Utils::randf_range(
         ProgramParams::BOID_MAX_SPEED_MIN,
         ProgramParams::BOID_MAX_SPEED_MAX
     );
@@ -218,7 +166,7 @@ static void update_boid(
             // ~~~ accumulate averages ~~~
 
             avg_position += system->boid_positions[b2];
-            avg_direction += safe_norm(system->boid_velocities[b2]);
+            avg_direction += Utils::safe_norm(system->boid_velocities[b2]);
             num_adjacent++;
         }
     }
@@ -254,7 +202,7 @@ static void update_boid(
     // ~~~ friction !! ~~~
 
     float vel_len = 0.0f;
-    glm::vec3 dir = safe_norm_len(system->boid_velocities[b], &vel_len);
+    glm::vec3 dir = Utils::safe_norm_len(system->boid_velocities[b], &vel_len);
 
     total_steer += dir * (ProgramParams::BOID_FRICTION_COEFF * -1.0f);
 
@@ -277,7 +225,7 @@ static void update_boid(
     // ~~~ update boid transform matrices ~~~
 
     glm::vec3 pos = system->boid_positions[b];
-    glm::vec3 rot = get_rot_look_at(pos, pos + system->boid_velocities[b]);
+    glm::vec3 rot = Utils::get_rot_look_at(pos, pos + system->boid_velocities[b]);
     glm::mat4 world = glm::translate(glm::mat4(1.0f), pos);
     world = glm::rotate(world, rot.z, glm::vec3(0.0f, 0.0f, 1.0f));
     world = glm::rotate(world, rot.y, glm::vec3(0.0f, 1.0f, 0.0f));

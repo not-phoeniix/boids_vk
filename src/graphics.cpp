@@ -7,6 +7,7 @@
 #include "data_structs.h"
 #include <stdexcept>
 #include "program_params.h"
+#include "light.h"
 
 const std::vector<const char*> VALIDATION_LAYERS = {
     "VK_LAYER_KHRONOS_validation"
@@ -62,42 +63,30 @@ namespace Graphics {
         destroy_queue.QueueDelete([] { ApiCluster.reset(); });
     }
 
-    static void create_instance_data_buffers() {
+    static void create_descriptor_objects() {
         // ~~~ create descriptor pool ~~~
 
-        VkDescriptorPoolSize pool_size = {
-            .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .descriptorCount = FRAMES_IN_FLIGHT
+        std::vector<VkDescriptorPoolSize> pool_sizes = {
+            (VkDescriptorPoolSize) {
+                .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                .descriptorCount = MAX_DESCRIPTORS
+            },
+            (VkDescriptorPoolSize) {
+                .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .descriptorCount = MAX_DESCRIPTORS
+            },
         };
         rt::DescriptorPoolCreateInfo pool_info = {
-            .max_sets = FRAMES_IN_FLIGHT,
+            .max_sets = MAX_DESCRIPTORS,
             .flags = 0,
-            .pool_sizes = &pool_size,
-            .pool_size_count = 1
+            .pool_sizes = pool_sizes.data(),
+            .pool_size_count = static_cast<uint32_t>(pool_sizes.size())
         };
-        InstanceDescriptorPool = std::make_unique<rt::DescriptorPool>(
+        DescriptorPool = std::make_unique<rt::DescriptorPool>(
             pool_info,
             ApiCluster->get_api_context()
         );
-        destroy_queue.QueueDelete([] { InstanceDescriptorPool.reset(); });
-
-        // ~~~ create buffers ~~~
-
-        rt::BufferCreateInfo buffer_info = {
-            .size = sizeof(InstanceData) * ProgramParams::BOID_COUNT,
-            .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-            .properties = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-        };
-
-        InstanceDataBuffers.resize(FRAMES_IN_FLIGHT);
-        for (size_t i = 0; i < InstanceDataBuffers.size(); i++) {
-            InstanceDataBuffers[i] = std::make_shared<rt::Buffer>(
-                buffer_info,
-                ApiCluster->get_api_context()
-            );
-            InstanceDataBuffers[i]->Map();
-        }
-        destroy_queue.QueueDelete([] { InstanceDataBuffers.clear(); });
+        destroy_queue.QueueDelete([] { DescriptorPool.reset(); });
 
         // ~~~ create descriptor set layout ~~~
 
@@ -109,6 +98,13 @@ namespace Graphics {
                 .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
                 .pImmutableSamplers = nullptr
             },
+            (VkDescriptorSetLayoutBinding) {
+                .binding = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .descriptorCount = 1,
+                .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                .pImmutableSamplers = nullptr
+            },
         };
 
         rt::DescriptorSetLayoutCreateInfo layout_create_info = {
@@ -116,24 +112,24 @@ namespace Graphics {
             .binding_count = static_cast<uint32_t>(bindings.size()),
         };
 
-        InstanceDataBufferLayout = std::make_shared<rt::DescriptorSetLayout>(
+        DescriptorSetLayout = std::make_shared<rt::DescriptorSetLayout>(
             layout_create_info,
             ApiCluster->get_api_context()
         );
-        destroy_queue.QueueDelete([] { InstanceDataBufferLayout.reset(); });
+        destroy_queue.QueueDelete([] { DescriptorSetLayout.reset(); });
 
-        // ~~~ allocate descriptor sets for buffers ~~~
+        // ~~~ allocate descriptor sets ~~~
 
-        InstanceDescriptorSets.resize(FRAMES_IN_FLIGHT);
+        DescriptorSets.resize(FRAMES_IN_FLIGHT);
 
         // vector full of identical layouts
         std::vector<VkDescriptorSetLayout> set_layouts(
             FRAMES_IN_FLIGHT,
-            InstanceDataBufferLayout->get_layout()
+            DescriptorSetLayout->get_layout()
         );
         VkDescriptorSetAllocateInfo alloc_info = {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-            .descriptorPool = InstanceDescriptorPool->get_pool(),
+            .descriptorPool = DescriptorPool->get_pool(),
             .descriptorSetCount = FRAMES_IN_FLIGHT,
             .pSetLayouts = set_layouts.data()
         };
@@ -141,33 +137,91 @@ namespace Graphics {
         VkResult result = vkAllocateDescriptorSets(
             ApiCluster->get_device(),
             &alloc_info,
-            InstanceDescriptorSets.data()
+            DescriptorSets.data()
         );
         if (result != VK_SUCCESS) {
             throw std::runtime_error("Failed to allocate instance data descriptor set!");
         }
+    }
+
+    static void create_buffers() {
+        // ~~~ create buffers ~~~
+
+        rt::BufferCreateInfo instance_buffer_info = {
+            .size = sizeof(InstanceData) * ProgramParams::BOID_COUNT,
+            .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            .properties = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+        };
+
+        rt::BufferCreateInfo light_buffer_info = {
+            .size = sizeof(Light) * MAX_LIGHTS + (sizeof(uint32_t) * 4),
+            .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            .properties = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+        };
+
+        InstanceDataBuffers.resize(FRAMES_IN_FLIGHT);
+        LightBuffers.resize(FRAMES_IN_FLIGHT);
+        for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++) {
+            // make instance buffers
+            InstanceDataBuffers[i] = std::make_shared<rt::Buffer>(
+                instance_buffer_info,
+                ApiCluster->get_api_context()
+            );
+            InstanceDataBuffers[i]->Map();
+
+            // make light buffers
+            LightBuffers[i] = std::make_shared<rt::Buffer>(
+                light_buffer_info,
+                ApiCluster->get_api_context()
+            );
+            LightBuffers[i]->Map();
+        }
+        destroy_queue.QueueDelete([] {
+            InstanceDataBuffers.clear();
+            LightBuffers.clear();
+        });
 
         // ~~~ write to descriptor sets ~~~
 
-        std::vector<VkWriteDescriptorSet> writes(FRAMES_IN_FLIGHT);
-        for (size_t i = 0; i < InstanceDescriptorSets.size(); i++) {
-            VkDescriptorBufferInfo buffer_info = {
+        std::vector<VkWriteDescriptorSet> writes;
+        for (size_t i = 0; i < DescriptorSets.size(); i++) {
+            VkDescriptorBufferInfo instance_buffer_info = {
                 .buffer = InstanceDataBuffers[i]->get_buffer(),
                 .offset = 0,
                 .range = InstanceDataBuffers[i]->get_size()
             };
 
-            writes[i] = (VkWriteDescriptorSet) {
+            VkDescriptorBufferInfo light_buffer_info = {
+                .buffer = LightBuffers[i]->get_buffer(),
+                .offset = 0,
+                .range = LightBuffers[i]->get_size()
+            };
+
+            // instance data storage buffer write
+            writes.push_back((VkWriteDescriptorSet) {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstSet = InstanceDescriptorSets[i],
+                .dstSet = DescriptorSets[i],
                 .dstBinding = 0,
                 .dstArrayElement = 0,
                 .descriptorCount = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                 .pImageInfo = nullptr,
-                .pBufferInfo = &buffer_info,
+                .pBufferInfo = &instance_buffer_info,
                 .pTexelBufferView = nullptr
-            };
+            });
+
+            // light uniform buffer write
+            writes.push_back((VkWriteDescriptorSet) {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet = DescriptorSets[i],
+                .dstBinding = 1,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .pImageInfo = nullptr,
+                .pBufferInfo = &light_buffer_info,
+                .pTexelBufferView = nullptr
+            });
         }
 
         vkUpdateDescriptorSets(
@@ -329,7 +383,7 @@ namespace Graphics {
         };
 
         std::vector<VkDescriptorSetLayout> layouts = {
-            InstanceDataBufferLayout->get_layout(),
+            DescriptorSetLayout->get_layout(),
         };
         VkPipelineLayoutCreateInfo layout_create_info = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -393,7 +447,8 @@ namespace Graphics {
         glfwGetWindowSize(window, &width, &height);
 
         create_api_cluster(window);
-        create_instance_data_buffers();
+        create_descriptor_objects();
+        create_buffers();
         create_graphics_manager(
             window,
             static_cast<uint32_t>(width),

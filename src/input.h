@@ -10,6 +10,7 @@ namespace Input {
     bool get_should_exit();
     bool get_lmb_down();
     bool get_is_sprinting();
+    bool get_light_refresh();
     glm::vec3 get_move_axis();
     glm::vec2 get_mouse_delta();
 }

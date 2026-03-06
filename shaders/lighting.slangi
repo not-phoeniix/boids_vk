@@ -3,21 +3,18 @@
 
 #define LIGHTING_MAX_SPECULAR_EXP 512.0f
 
-enum LightType {
-    DIRECTIONAL,
-    POINT,
-    SPOT
-}
+#define LIGHT_TYPE_DIRECTIONAL 0
+#define LIGHT_TYPE_POINT 1
+#define LIGHT_TYPE_SPOT 2
 
 struct Light {
-    LightType type;
-    float3 direction;
-    float intensity;
     float3 color;
-    float range;
+    float3 direction;
     float3 position;
+    uint type;
+    float intensity;
+    float range;
     float spot_angle_diff;
-    float3 padding;
 }
 
 struct SurfaceData {
@@ -39,14 +36,14 @@ namespace Lighting {
 
     // === old lighting formulas ==========================
 
-    float3 lambert_diffuse(Light light, SurfaceData surface) {
-        float scalar = max(dot(-light.direction, surface.normal), 0.0);
+    float3 lambert_diffuse(Light light, SurfaceData surface, float3 dir_to_light) {
+        float scalar = max(dot(dir_to_light, surface.normal), 0.0);
         return surface.color * scalar * light.intensity * light.color;
     }
 
-    float3 blinn_phong_specular(Light light, SurfaceData surface, float3 camera_pos) {
+    float3 blinn_phong_specular(Light light, SurfaceData surface, float3 camera_pos, float3 dir_to_light) {
         float3 to_cam = normalize(camera_pos - surface.position);
-        float3 refl = reflect(light.direction, surface.normal);
+        float3 refl = reflect(-dir_to_light, surface.normal);
 
         float specular_exp = (1.0f - surface.roughness) * LIGHTING_MAX_SPECULAR_EXP;
 
@@ -62,11 +59,39 @@ namespace Lighting {
 
     // === combined light functions =======================
 
-    float3 shade_retro(Light light, SurfaceData surface, float3 ambient, float3 camera_pos) {
+    float3 shade_retro_directional(Light light, SurfaceData surface, float3 camera_pos) {
         float3 color = float3(0.0f);
-        color += ambient * surface.color;
-        color += lambert_diffuse(light, surface);
-        color += blinn_phong_specular(light, surface, camera_pos);
+
+        color += lambert_diffuse(light, surface, -light.direction);
+        color += blinn_phong_specular(light, surface, camera_pos, -light.direction);
+
+        return color;
+    }
+
+    float3 shade_retro_point(Light light, SurfaceData surface, float3 camera_pos) {
+        float3 color = float3(0.0f);
+
+        float3 to_light = normalize(light.position - surface.position);
+        color += lambert_diffuse(light, surface, to_light);
+        color += blinn_phong_specular(light, surface, camera_pos, to_light);
+        color *= attenuate(light, surface.position);
+
+        return color;
+    }
+
+    float3 shade_retro(Light light, SurfaceData surface, float3 camera_pos) {
+        float3 color = float3(0.0f);
+        color = shade_retro_point(light, surface, camera_pos);
+
+        // switch (light.type) {
+        //     case LIGHT_TYPE_DIRECTIONAL: 
+        //         color = shade_retro_directional(light, surface, camera_pos);
+        //         break;
+        //     case LIGHT_TYPE_POINT:
+        //         color = shade_retro_point(light, surface, camera_pos);
+        //         break;
+        // }
+
         return color;
     }
 
