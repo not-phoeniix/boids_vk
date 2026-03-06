@@ -51,16 +51,8 @@ static std::shared_ptr<rt::Mesh> load_mesh(
                     attrib.normals[3 * index.normal_index + 0],
                     attrib.normals[3 * index.normal_index + 1],
                     attrib.normals[3 * index.normal_index + 2],
-                },
-                .uv = {
-                    attrib.texcoords[2 * index.texcoord_index + 0],
-                    attrib.texcoords[2 * index.texcoord_index + 1],
                 }
             };
-
-            // invert y coordinate in UVs
-            //   (0 is top left, not bottom left like OBJ specifies)
-            v.uv.y = 1.0f - v.uv.y;
 
             vertices.push_back(v);
             indices.push_back(index_counter++);

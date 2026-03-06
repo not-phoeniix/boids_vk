@@ -148,7 +148,7 @@ namespace Graphics {
         // ~~~ create buffers ~~~
 
         rt::BufferCreateInfo instance_buffer_info = {
-            .size = sizeof(InstanceData) * ProgramParams::BOID_COUNT,
+            .size = sizeof(glm::mat4) * ProgramParams::BOID_COUNT,
             .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             .properties = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
         };

@@ -13,7 +13,3 @@ struct PixelPushConstants {
     alignas(16) glm::vec3 ambient;
     alignas(16) glm::vec3 camera_pos;
 };
-
-struct InstanceData {
-    glm::mat4x4 world;
-};

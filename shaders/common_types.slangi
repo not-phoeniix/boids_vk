@@ -4,14 +4,12 @@
 struct Vertex {
     float3 position : POSITION;
     float3 normal : NORMAL;
-    float2 uv : TEXCOORD;
 }
 
 struct PSIn {
     float4 position : SV_Position;
     float3 world_pos : TEXCOORD01;
     float3 normal : NORMAL;
-    float2 uv : TEXCOORD00;
 }
 
 #endif

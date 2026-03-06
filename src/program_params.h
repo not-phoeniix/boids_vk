@@ -15,7 +15,7 @@ namespace ProgramParams {
     constexpr float CAM_SPRINT_SCALAR = 4.0f;
     constexpr float CAM_LOOK_SPEED = 0.007f;
 
-    constexpr uint32_t CHUNKS_PER_AXIS = 8;
+    constexpr uint32_t CHUNKS_PER_AXIS = 14;
     const glm::vec3 AMBIENT_COLOR = glm::vec3(0.005f);
 
     constexpr uint32_t BOID_COUNT = 10000;
@@ -25,8 +25,8 @@ namespace ProgramParams {
     constexpr float BOID_ADJACENT_SEARCH_RADIUS = 20.0f;
     constexpr float BOID_BOUND_LIMIT_STRENGTH = 4.0f;
     constexpr float BOID_FRICTION_COEFF = 2.0f;
-    constexpr float BOID_MAX_SPEED_MIN = 10.0f;
-    constexpr float BOID_MAX_SPEED_MAX = 50.0f;
+    constexpr float BOID_MAX_SPEED_MIN = 20.0f;
+    constexpr float BOID_MAX_SPEED_MAX = 80.0f;
 
     constexpr float BOID_SEPARATE_STRENGTH = 0.4f;
     constexpr float BOID_COHESION_STRENGTH = 3.0f;
