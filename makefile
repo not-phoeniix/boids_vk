@@ -73,7 +73,7 @@ clean:
 
 run: $(RES_OUT) $(LIB_OUT) $(SHADER_BIN) $(BIN)
 	@echo "running $(BIN)..."
-	@cd $(BIN_DIR) && export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:./$(LIB_DIR) && ./$(BIN_NAME)
+	@cd $(BIN_DIR) && export LD_LIBRARY_PATH=./$(LIB_DIR):$$LD_LIBRARY_PATH && ./$(BIN_NAME)
 
 # make dirs and create main file
 setup:
