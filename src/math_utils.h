@@ -3,7 +3,7 @@
 #include <iostream>
 #include <cstdint>
 #include <cstdlib>
-#include "render_thing/glm_settings.h"
+#include "graphics/glm_settings.h"
 #include <glm/glm.hpp>
 
 namespace Utils {

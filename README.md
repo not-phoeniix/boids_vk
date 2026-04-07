@@ -1,5 +1,5 @@
 # boids_vk
-**boids_vk** is a 3D boids simulation! It is rendered in Vulkan using my open source rendering framework **[render_thing](https://github.com/not-phoeniix/render_thing)**. The aim of this project is to practice data-oriented design practices to create a complex and efficient simulation of a ***ton of boids*** (10,000 boids to be exact).
+**boids_vk** is a 3D boids simulation rendered in Vulkan! The aim of this project is to practice data-oriented design practices to create a complex and efficient simulation of a ***ton of boids*** (10,000 boids to be exact).
 
 ## Features/Performance
 Controls:
@@ -26,7 +26,7 @@ This project is really pretty! Check out these screenshots :D
 All library dependencies are included in the git repo already. The project has been created to support building on Linux using GNU Make. 
 
 The libraries used in this project are as follows:
-- render_thing: https://github.com/not-phoeniix/render_thing
+- vk-bootstrap: https://github.com/charles-lunarg/vk-bootstrap
 - stb_image: https://github.com/nothings/stb
 - tinyobjloader: https://github.com/tinyobjloader/tinyobjloader
 

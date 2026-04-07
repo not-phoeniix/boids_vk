@@ -3,7 +3,7 @@
 //! make sure this matches the light definition in
 //!   the lighting.slangi file!!
 
-#include "render_thing/glm_settings.h"
+#include "graphics/glm_settings.h"
 #include <glm/glm.hpp>
 
 constexpr uint32_t MAX_LIGHTS = 512;

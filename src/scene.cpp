@@ -6,7 +6,7 @@
 #include <iostream>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/norm.hpp>
-#include "graphics.h"
+#include "graphics/graphics.h"
 #include "data_structs.h"
 #include "vertex.h"
 #include "program_params.h"
@@ -20,11 +20,7 @@
 
 #pragma region // helpers
 
-static std::shared_ptr<rt::Mesh> load_mesh(
-    const std::string& path,
-    const rt::GraphicsContext& g_ctx,
-    const rt::ApiContext& a_ctx
-) {
+static std::shared_ptr<Mesh> load_mesh(const std::string& path) {
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
 
@@ -59,15 +55,27 @@ static std::shared_ptr<rt::Mesh> load_mesh(
         }
     }
 
-    rt::MeshCreateInfo mesh_info = {
-        .vertices = vertices.data(),
+    MeshCreateInfo mesh_info = {
         .vertex_size = sizeof(Vertex),
         .num_vertices = static_cast<uint32_t>(vertices.size()),
-        .indices = indices.data(),
+        .vertices = vertices.data(),
         .index_size = sizeof(uint32_t),
         .num_indices = static_cast<uint32_t>(indices.size()),
+        .indices = indices.data(),
     };
-    return std::make_shared<rt::Mesh>(mesh_info, g_ctx, a_ctx);
+
+    auto mesh = std::make_shared<Mesh>();
+    if (mesh_create(
+            Graphics::get_device(),
+            mesh_info,
+            Graphics::get_command_pool(),
+            Graphics::get_graphics_queue(),
+            mesh.get()
+        ) == false) {
+        throw new std::runtime_error("Failed to create mesh!");
+    }
+
+    return mesh;
 }
 
 /*
@@ -112,14 +120,11 @@ static std::shared_ptr<Image> load_image(
 #pragma endregion
 
 Scene::Scene() {
-    rt::ApiContext a_ctx = Graphics::Manager->get_api_context();
-    rt::GraphicsContext g_ctx = Graphics::Manager->get_graphics_context();
-
-    mesh = load_mesh("res/boid.obj", g_ctx, a_ctx);
+    mesh = load_mesh("res/boid.obj");
 
     camera = std::make_unique<Camera>(
         glm::vec3(0.0f, 200.0, -300.0f),
-        Graphics::Manager->get_aspect(),
+        Graphics::get_aspect(),
         glm::radians(85.0f),
         0.01f,
         1000.0f
@@ -137,8 +142,10 @@ Scene::Scene() {
 
 Scene::~Scene() {
     // delete shared ptrs ! call deconstructors !
+
+    mesh_destroy(mesh.get());
     mesh.reset();
-    image.reset();
+
     camera.reset();
     boid_system_destroy(&boid_system);
 }
@@ -172,7 +179,7 @@ void Scene::RandomizeLights() {
 }
 
 void Scene::Update(float dt) {
-    uint32_t frame_index = Graphics::SwapChain->get_frame_index();
+    uint32_t frame_index = Graphics::get_frame_index();
 
     if (Input::get_light_refresh()) {
         RandomizeLights();
@@ -210,7 +217,7 @@ void Scene::Update(float dt) {
     float boid_time_start = glfwGetTime();
     boid_system_update(
         &boid_system,
-        Graphics::InstanceDataBuffers[frame_index],
+        &Graphics::InstanceDataBuffers[frame_index],
         dt
     );
     float boid_time_end = glfwGetTime();
@@ -235,12 +242,14 @@ void Scene::Update(float dt) {
 
     // ~~~ copy light data ~~~
 
-    Graphics::LightBuffers[frame_index]->CopyFromHost(
+    buffer_copy_host(
+        &Graphics::LightBuffers[frame_index],
         lights.data(),
         sizeof(Light) * lights.size()
     );
     uint32_t light_count = static_cast<uint32_t>(lights.size());
-    Graphics::LightBuffers[frame_index]->CopyFromHost(
+    buffer_copy_host(
+        &Graphics::LightBuffers[frame_index],
         &light_count,
         sizeof(uint32_t),
         sizeof(Light) * MAX_LIGHTS
@@ -248,14 +257,14 @@ void Scene::Update(float dt) {
 }
 
 void Scene::Draw() {
-    uint32_t frame_index = Graphics::SwapChain->get_frame_index();
-    VkCommandBuffer command_buffer = Graphics::Manager->get_command_buffer();
-    camera->set_aspect(Graphics::Manager->get_aspect());
+    uint32_t frame_index = Graphics::get_frame_index();
+    VkCommandBuffer command_buffer = Graphics::get_frame_command_buffer();
+    camera->set_aspect(Graphics::get_aspect());
 
     // ~~~ binding vertex/index buffers ~~~
 
     VkDeviceSize offset = 0;
-    VkBuffer vertex_buffer = mesh->get_vertex_buffer();
+    VkBuffer vertex_buffer = mesh->vertex_buffer.buffer;
     vkCmdBindVertexBuffers(
         command_buffer,
         0,
@@ -266,7 +275,7 @@ void Scene::Draw() {
 
     vkCmdBindIndexBuffer(
         command_buffer,
-        mesh->get_index_buffer(),
+        mesh->index_buffer.buffer,
         0,
         VK_INDEX_TYPE_UINT32
     );
@@ -279,7 +288,7 @@ void Scene::Draw() {
     };
     vkCmdPushConstants(
         command_buffer,
-        Graphics::GraphicsPipeline->get_layout(),
+        Graphics::get_graphics_pipeline_layout(),
         VK_SHADER_STAGE_VERTEX_BIT,
         0,
         sizeof(camera_data),
@@ -293,7 +302,7 @@ void Scene::Draw() {
     };
     vkCmdPushConstants(
         command_buffer,
-        Graphics::GraphicsPipeline->get_layout(),
+        Graphics::get_graphics_pipeline_layout(),
         VK_SHADER_STAGE_FRAGMENT_BIT,
         sizeof(CameraPushConstants), // offset by camera data
         sizeof(pixel_data),
@@ -306,7 +315,7 @@ void Scene::Draw() {
     vkCmdBindDescriptorSets(
         command_buffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
-        Graphics::GraphicsPipeline->get_layout(),
+        Graphics::get_graphics_pipeline_layout(),
         0,
         1,
         &Graphics::DescriptorSets[frame_index],
@@ -317,7 +326,7 @@ void Scene::Draw() {
     // do actual instanced draw!
     vkCmdDrawIndexed(
         command_buffer,
-        mesh->get_num_indices(),
+        mesh->num_indices,
         boid_system.boid_count,
         0,
         0,

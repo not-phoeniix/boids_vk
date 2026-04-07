@@ -1,13 +1,13 @@
 #pragma once
 
-#include "render_thing/glm_settings.h"
+#include "graphics/glm_settings.h"
 #include <glm/glm.hpp>
 #include <vector>
 #include <stdint.h>
 #include <unordered_set>
 #include "thread_pool.h"
-#include "render_thing/render_thing.h"
 #include <memory>
+#include "graphics/buffer.h"
 
 using BoidChunk = std::unordered_set<uint32_t>;
 
@@ -26,4 +26,4 @@ struct BoidSystem {
 
 void boid_system_populate(BoidSystem* system, uint32_t count, float bounds_size);
 void boid_system_destroy(BoidSystem* system);
-void boid_system_update(BoidSystem* system, std::shared_ptr<rt::Buffer> instance_data_buffer, float dt);
+void boid_system_update(BoidSystem* system, Buffer* instance_data_buffer, float dt);

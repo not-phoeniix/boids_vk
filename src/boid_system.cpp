@@ -144,7 +144,7 @@ static void update_boid_container(uint32_t b, BoidSystem* system) {
 static void update_boid(
     uint32_t b,
     BoidSystem* system,
-    std::shared_ptr<rt::Buffer> instance_data_buffer,
+    Buffer* instance_data_buffer,
     float dt
 ) {
     glm::vec3 avg_position = {0.0f, 0.0f, 0.0f};
@@ -227,15 +227,20 @@ static void update_boid(
     glm::vec3 pos = system->boid_positions[b];
     glm::vec3 rot = Utils::get_rot_look_at(pos, pos + system->boid_velocities[b]);
     glm::mat4 world = glm::translate(glm::mat4(1.0f), pos);
-    // we don't need a Z rot because Utils::get_rot_look_at 
+    // we don't need a Z rot because Utils::get_rot_look_at
     //   is only pitch/yaw, no roll
     world = glm::rotate(world, rot.y, glm::vec3(0.0f, 1.0f, 0.0f));
     world = glm::rotate(world, rot.x, glm::vec3(1.0f, 0.0f, 0.0f));
 
-    instance_data_buffer->CopyFromHost(&world, sizeof(world), sizeof(glm::mat4x4) * b);
+    buffer_copy_host(
+        instance_data_buffer,
+        &world,
+        sizeof(world),
+        sizeof(glm::mat4x4) * b
+    );
 }
 
-void boid_system_update(BoidSystem* system, std::shared_ptr<rt::Buffer> instance_data_buffer, float dt) {
+void boid_system_update(BoidSystem* system, Buffer* instance_data_buffer, float dt) {
     // UPDATE CONTAINERS IN BATCHES
     {
         uint32_t b_start = 0;

@@ -1,18 +1,16 @@
 #include <iostream>
-#include "render_thing/render_thing.h"
 #include <stdexcept>
 #include <cstdlib>
 #include <GLFW/glfw3.h>
 #include "input.h"
 #include "scene.h"
-#include <cstdlib>
-#include "thread_pool.h"
-#include "graphics.h"
+#include "graphics/graphics.h"
 #include "program_params.h"
+#include "utility/check_macros.h"
 
-static void run() {
+static bool run() {
     glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
-    glfwInit();
+    BOOL_CHECK(glfwInit());
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
@@ -24,7 +22,7 @@ static void run() {
         nullptr
     );
 
-    Graphics::init(window);
+    BOOL_CHECK(Graphics::init(window));
     auto scene = std::make_unique<Scene>();
 
     float dt_sum = 0;
@@ -47,9 +45,7 @@ static void run() {
 
         scene->Update(dt);
 
-        Graphics::Manager->Begin();
-        scene->Draw();
-        Graphics::Manager->EndAndPresent();
+        BOOL_CHECK(Graphics::render_frame([&scene] { scene->Draw(); }));
 
         frame_counter++;
         dt_sum += dt;
@@ -65,13 +61,15 @@ static void run() {
         time_prev = time_now;
     }
 
-    vkDeviceWaitIdle(Graphics::Manager->get_device());
+    vkDeviceWaitIdle(Graphics::get_device());
 
     scene.reset();
     Graphics::deinit();
 
     glfwDestroyWindow(window);
     glfwTerminate();
+
+    return true;
 }
 
 int main() {
