@@ -19,7 +19,7 @@ This project is really pretty! Check out these screenshots :D
 <span align="center">
     <img src="screenshots/sc_01.png" alt="A sphere of boids from a distance" width="32%">
     <img src="screenshots/sc_02.png" alt="Inside a sphere of boids swarming" width="32%">
-    <img src="screenshots/sc_03.png" alt="Up-close screenshot of boid cubes with a dog texture" width="32%">
+    <img src="screenshots/sc_03.png" alt="Up-close view of multi-colored bird-shaped boid model" width="32%">
 </span>
 
 ## Dependencies
