@@ -31,7 +31,7 @@ The libraries used in this project are as follows:
 - tinyobjloader: https://github.com/tinyobjloader/tinyobjloader
 
 ## Building
-Only works on Linux for now. Run `make` in the root of the project folder, build is outputted at `bin/build`. Also make sure to toss `lib/librender_thing.so` in your dynamically linked libraries path. 
+Only works on Linux for now. Run `make` in the root of the project folder, build is outputted at `bin/build`. Vulkan headers/tools and GLM headers are not included in the project and must be installed as packages.
 
 You can also run `make run` to automatically build & run the project and set up the path for the `.so` file <3
 
